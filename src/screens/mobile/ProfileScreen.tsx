@@ -9,7 +9,7 @@ interface Props {
 
 function Row({ label, value, onClick }: { label: string; value?: string; onClick?: () => void }) {
   return (
-    <button onClick={onClick} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 20px', borderBottom: '1px solid var(--line)', background: 'none', border: 0, borderBottom: '1px solid var(--line)', width: '100%', textAlign: 'left', cursor: onClick ? 'pointer' : 'default', fontFamily: 'var(--font-ui)' }}>
+    <button onClick={onClick} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 20px', borderBottom: '1px solid var(--line)', background: 'none', width: '100%', textAlign: 'left', cursor: onClick ? 'pointer' : 'default', fontFamily: 'var(--font-ui)' }}>
       <span style={{ fontSize: 14, color: 'var(--ink)', fontWeight: 500 }}>{label}</span>
       {value && <span style={{ fontSize: 13.5, color: 'var(--ink-faint)', fontWeight: 600 }}>{value}</span>}
     </button>
@@ -43,7 +43,7 @@ export default function ProfileScreen({ gradeSystem, onSetGradeSystem }: Props) 
       <div style={{ background: 'var(--card)', borderTop: '1px solid var(--line)', borderBottom: '1px solid var(--line)' }}>
         {GRADE_SYSTEMS.map(gs => (
           <button key={gs.id} onClick={() => onSetGradeSystem(gs.id)}
-            style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '13px 20px', borderBottom: '1px solid var(--line)', background: 'none', border: 0, borderBottom: '1px solid var(--line)', width: '100%', textAlign: 'left', cursor: 'pointer', fontFamily: 'var(--font-ui)' }}>
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '13px 20px', borderBottom: '1px solid var(--line)', background: 'none', width: '100%', textAlign: 'left', cursor: 'pointer', fontFamily: 'var(--font-ui)' }}>
             <div>
               <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink)' }}>{gs.label}</div>
               <div style={{ fontSize: 12, color: 'var(--ink-faint)', marginTop: 1 }}>

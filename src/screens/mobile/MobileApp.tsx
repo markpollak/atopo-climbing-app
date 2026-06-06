@@ -6,7 +6,7 @@ import TopoScreen from './TopoScreen';
 import LogbookScreen, { MapScreen } from './LogbookScreen';
 import SearchScreen from './SearchScreen';
 import ProfileScreen from './ProfileScreen';
-import { BRACKEN_PHOTO, BRACKEN_ASPECT, BRACKEN_ROUTES, BRACKEN_CRAG } from '../../data/bracken';
+import { STANAGE_PHOTO, STANAGE_ASPECT, STANAGE_ROUTES, STANAGE_CRAG } from '../../data/stanage';
 import type { GradeSystem } from '../../types';
 
 type MobileTab = 'home' | 'map' | 'search' | 'logbook' | 'profile';
@@ -29,10 +29,10 @@ export default function MobileApp() {
     if (tab === 'home') {
       if (view === 'topo') return (
         <TopoScreen
-          crag={BRACKEN_CRAG}
-          routes={BRACKEN_ROUTES}
-          photo={BRACKEN_PHOTO}
-          aspect={BRACKEN_ASPECT}
+          crag={STANAGE_CRAG}
+          routes={STANAGE_ROUTES}
+          photo={STANAGE_PHOTO}
+          aspect={STANAGE_ASPECT}
           onBack={() => setView('crag')}
           gradeSystem={gradeSystem}
         />

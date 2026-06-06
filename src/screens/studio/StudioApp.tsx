@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { AtopoWordmark, Icon } from '../../components/Icons';
 import TopoStage from '../../components/TopoStage';
-import { BRACKEN_PHOTO, BRACKEN_ASPECT, BRACKEN_ROUTES } from '../../data/bracken';
+import { STANAGE_PHOTO, STANAGE_ASPECT, STANAGE_ROUTES } from '../../data/stanage';
 import { convertGrade } from '../../data/grades';
 import type { Route } from '../../types';
 
@@ -176,7 +176,7 @@ function PublishPanel() {
 
 export default function StudioApp() {
   const [activeTab, setActiveTab] = useState<StudioTab>('editor');
-  const [routes, setRoutes] = useState<Route[]>(BRACKEN_ROUTES);
+  const [routes, setRoutes] = useState<Route[]>(STANAGE_ROUTES);
   const [selected, setSelected] = useState<number | null>(null);
   const [showLabels, setShowLabels] = useState(true);
   const [isolate, setIsolate] = useState(false);
@@ -265,8 +265,8 @@ export default function StudioApp() {
                 </div>
               )}
               <TopoStage
-                photo={BRACKEN_PHOTO}
-                aspect={BRACKEN_ASPECT}
+                photo={STANAGE_PHOTO}
+                aspect={STANAGE_ASPECT}
                 routes={routes}
                 selected={selected}
                 onSelect={setSelected}

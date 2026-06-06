@@ -1,5 +1,6 @@
 import { AtopoWordmark, Icon } from '../../components/Icons';
-import { BRACKEN_PHOTO, TOPO_PHOTO } from '../../data/bracken';
+import { STANAGE_PHOTO, STANAGE_CRAG, STANAGE_ROUTES } from '../../data/stanage';
+import { TOPO_PHOTO } from '../../data/bracken';
 
 function StatusRow({ dark = false }) {
   const c = dark ? '#fff' : 'var(--ink)';
@@ -41,13 +42,13 @@ export default function HomeScreen({ onOpenCrag, onOpenTopo }: Props) {
       {/* Featured / continue card */}
       <div style={{ margin: '14px 20px 0', borderRadius: 'var(--r-lg)', overflow: 'hidden', position: 'relative', boxShadow: 'var(--sh-md)', cursor: 'pointer' }} onClick={onOpenTopo}>
         <div style={{ height: 188, position: 'relative', background: '#222' }}>
-          <img src={BRACKEN_PHOTO} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          <img src={STANAGE_PHOTO} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: '30% 50%' }} />
           <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(0deg, rgba(18,18,15,.86), rgba(18,18,15,.05) 60%)' }}></div>
           <div style={{ position: 'absolute', top: 12, left: 12 }} className="pill-offline"><span className="dot"></span>Available offline</div>
           <div style={{ position: 'absolute', left: 16, right: 16, bottom: 14, color: '#fff' }}>
             <div className="seclabel" style={{ color: 'rgba(255,255,255,.7)' }}>Continue where you left off</div>
-            <div style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 24, marginTop: 3 }}>Bracken Edge</div>
-            <div style={{ fontSize: 12.5, opacity: .85, marginTop: 2 }}>Dark Peak · Trad · 20 routes · VDiff–E4</div>
+            <div style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 24, marginTop: 3 }}>{STANAGE_CRAG.name}</div>
+            <div style={{ fontSize: 12.5, opacity: .85, marginTop: 2 }}>{STANAGE_CRAG.area} · {STANAGE_CRAG.type} · {STANAGE_ROUTES.length} routes · {STANAGE_CRAG.gradeRange}</div>
           </div>
         </div>
       </div>
@@ -55,7 +56,7 @@ export default function HomeScreen({ onOpenCrag, onOpenTopo }: Props) {
       <SectionHead title="Downloaded guides" action="See all" />
       <div style={{ display: 'flex', gap: 12, overflowX: 'auto', padding: '0 20px 4px' }} className="no-scrollbar">
         {[
-          { t: 'Dark Peak Grit Demo', s: '18 crags · 540 routes', sz: '92 MB', ph: BRACKEN_PHOTO },
+          { t: 'Dark Peak Grit Demo', s: '18 crags · 540 routes', sz: '92 MB', ph: STANAGE_PHOTO },
           { t: 'Peak Limestone Demo', s: '42 crags · 1,250 routes', sz: '180 MB', ph: TOPO_PHOTO },
           { t: 'North Wales Sport', s: '12 crags · 360 routes', sz: '64 MB', ph: null },
         ].map((g, i) => (
@@ -78,7 +79,7 @@ export default function HomeScreen({ onOpenCrag, onOpenTopo }: Props) {
       <SectionHead title="Recently viewed" />
       <div style={{ padding: '0 20px' }}>
         {[
-          { n: 'Bracken Edge', m: 'Dark Peak · Trad · 20 routes', crag: true },
+          { n: 'Stanage Edge', m: 'Peak District · Trad · 21 routes', crag: true },
           { n: 'Lime Kiln Quarry', m: 'Matlock · Sport · 36 routes' },
           { n: 'Horseshoe Quarry', m: 'Hope Valley · Sport · 88 routes' },
         ].map((c, i) => (

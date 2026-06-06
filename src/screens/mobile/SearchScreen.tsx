@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { Icon, AtopoMark } from '../../components/Icons';
-import { BRACKEN_ROUTES, BRACKEN_CRAG } from '../../data/bracken';
+import { STANAGE_ROUTES, STANAGE_CRAG } from '../../data/stanage';
 import { convertGrade, STATUS_META } from '../../data/grades';
 import type { GradeSystem } from '../../types';
 
@@ -19,7 +19,7 @@ export default function SearchScreen({ gradeSystem, onOpenTopo }: Props) {
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
 
   const results = useMemo(() => {
-    return BRACKEN_ROUTES.filter(r => {
+    return STANAGE_ROUTES.filter(r => {
       if (query && !r.name.toLowerCase().includes(query.toLowerCase()) && !r.grade.toLowerCase().includes(query.toLowerCase())) return false;
       if (styleFilter && r.style !== styleFilter) return false;
       if (starsFilter && r.stars < starsFilter) return false;
@@ -76,7 +76,7 @@ export default function SearchScreen({ gradeSystem, onOpenTopo }: Props) {
         {!query && !hasFilters ? (
           <div style={{ padding: '40px 20px', textAlign: 'center', color: 'var(--ink-faint)' }}>
             <div style={{ marginBottom: 12 }}><AtopoMark size={40} stone="var(--warm-stone)" route="var(--rust)" /></div>
-            <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--ink)', marginBottom: 6 }}>Search Bracken Edge</div>
+            <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--ink)', marginBottom: 6 }}>Search Stanage Edge</div>
             <div style={{ fontSize: 13, lineHeight: 1.5 }}>Search by route name, grade, or use the filters above</div>
           </div>
         ) : results.length === 0 ? (
@@ -91,7 +91,7 @@ export default function SearchScreen({ gradeSystem, onOpenTopo }: Props) {
               <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--ink-faint)' }}>
                 {results.length} route{results.length !== 1 ? 's' : ''}
               </span>
-              <span style={{ fontSize: 12, color: 'var(--ink-faint)' }}>{BRACKEN_CRAG.name}</span>
+              <span style={{ fontSize: 12, color: 'var(--ink-faint)' }}>{STANAGE_CRAG.name}</span>
             </div>
             {results.map(r => {
               const sm = STATUS_META[r.status || 'none'];
@@ -103,7 +103,7 @@ export default function SearchScreen({ gradeSystem, onOpenTopo }: Props) {
                     <span className="rname">{r.name}</span>
                     <span className="rmeta">
                       <span className="stars" style={{ fontSize: 10 }}>{'★'.repeat(r.stars)}</span>
-                      {' '}{r.style} · {r.len}m · {BRACKEN_CRAG.name}
+                      {' '}{r.style} · {r.len}m · {STANAGE_CRAG.name}
                     </span>
                   </span>
                   {sm.label !== 'Not tried' && (

@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { Icon } from '../../components/Icons';
-import { BRACKEN_PHOTO, BRACKEN_CRAG, BRACKEN_ROUTES } from '../../data/bracken';
+import { STANAGE_PHOTO, STANAGE_CRAG, STANAGE_ROUTES } from '../../data/stanage';
 
-function gradeBands(routes: typeof BRACKEN_ROUTES) {
+function gradeBands(routes: typeof STANAGE_ROUTES) {
   const order = ['VDiff', 'Severe', 'HS', 'VS', 'HVS', 'E1', 'E2', 'E3', 'E4'];
   const counts: Record<string, number> = {};
   routes.forEach(r => { const k = r.grade.split(' ')[0]; counts[k] = (counts[k] || 0) + 1; });
@@ -17,15 +17,15 @@ interface Props {
 export default function CragScreen({ onBack, onOpenTopo }: Props) {
   const [tab, setTab] = useState('Overview');
   const tabs = ['Overview', 'Approach', 'Access', 'Sectors'];
-  const c = BRACKEN_CRAG;
-  const bands = gradeBands(BRACKEN_ROUTES);
+  const c = STANAGE_CRAG;
+  const bands = gradeBands(STANAGE_ROUTES);
   const maxc = Math.max(...bands.map(b => b.c));
 
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: 'var(--surface)' }}>
       <div style={{ flex: 1, overflowY: 'auto' }} className="thin-scroll">
         <div style={{ position: 'relative', height: 260, background: '#222' }}>
-          <img src={BRACKEN_PHOTO} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: '30% 40%' }} />
+          <img src={STANAGE_PHOTO} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: '20% 50%' }} />
           <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(0deg, var(--surface) 1%, rgba(18,18,15,.15) 40%, rgba(18,18,15,.5))' }}></div>
           <div style={{ position: 'absolute', top: 0, left: 0, right: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '34px 16px 0' }}>
             <button className="iconbtn" onClick={onBack}><Icon.back /></button>
@@ -57,7 +57,7 @@ export default function CragScreen({ onBack, onOpenTopo }: Props) {
           {tab === 'Overview' && (
             <>
               <p style={{ fontSize: 15, lineHeight: 1.62, color: 'var(--ink-soft)', margin: '0 0 18px' }}>
-                A classic gritstone edge strung high above the bracken-cloaked moor. Twenty routes climb the buttresses and arêtes from gentle VDiffs to bold modern testpieces, with bullet-hard rock and long evening sun.
+                A classic gritstone edge strung high above the Peak District moorland. Twenty-one routes on this section climb buttresses and arêtes from VDiffs to bold E4 testpieces.
               </p>
               <div className="seclabel" style={{ marginBottom: 10 }}>Grade spread</div>
               <div style={{ display: 'flex', alignItems: 'flex-end', gap: 6, height: 84 }}>
@@ -72,7 +72,7 @@ export default function CragScreen({ onBack, onOpenTopo }: Props) {
           )}
           {tab === 'Approach' && (
             <div style={{ fontSize: 15, lineHeight: 1.62, color: 'var(--ink-soft)' }}>
-              <p style={{ marginTop: 0 }}><b style={{ color: 'var(--ink)' }}>Walk-in · 15 min.</b> From the lay-by, follow the well-worn path up through the bracken, bearing right below the first buttresses.</p>
+              <p style={{ marginTop: 0 }}><b style={{ color: 'var(--ink)' }}>Walk-in · 20 min.</b> From the Dennis Knoll car park, follow the path up to the edge. Turn left for the left section, right for the upper buttresses.</p>
               <div className="card" style={{ padding: '12px 14px', display: 'flex', gap: 10, alignItems: 'center', marginTop: 6 }}>
                 <span style={{ color: 'var(--moss)' }}><Icon.pin /></span>
                 <div style={{ flex: 1 }}><div style={{ fontWeight: 700, fontSize: 13.5, color: 'var(--ink)' }}>Parking</div><div style={{ fontSize: 12.5 }}>Roadside lay-by, space for ~8 cars. Don't block the gate.</div></div>
