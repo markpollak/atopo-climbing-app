@@ -50,13 +50,15 @@ def update_crag(crag_id: int, body: CragUpdate):
     return _row_to_dict(row)
 
 
+ALLOWED_IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".heic", ".heif", ".tiff", ".tif"}
+
 @router.post("/{crag_id}/photo")
 async def upload_photo(crag_id: int, file: UploadFile = File(...)):
-    # Validate image type
-    if not file.content_type or not file.content_type.startswith("image/"):
-        raise HTTPException(400, "File must be an image")
-
-    suffix = Path(file.filename or "photo.jpg").suffix or ".jpg"
+    suffix = Path(file.filename or "photo.jpg").suffix.lower() or ".jpg"
+    is_image_mime = file.content_type and file.content_type.startswith("image/")
+    is_image_ext = suffix in ALLOWED_IMAGE_EXTENSIONS
+    if not is_image_mime and not is_image_ext:
+        raise HTTPException(400, "File must be an image (jpg, png, webp, heic, tiff)")
     filename = f"crag_{crag_id}_{uuid.uuid4().hex[:8]}{suffix}"
     dest = UPLOADS_DIR / filename
 
