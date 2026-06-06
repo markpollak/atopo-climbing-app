@@ -13,9 +13,34 @@ def get_db() -> sqlite3.Connection:
     return conn
 
 
+def _migrate(conn):
+    existing = {row[1] for row in conn.execute("PRAGMA table_info(users)").fetchall()}
+    migrations = {
+        "is_active":          "ALTER TABLE users ADD COLUMN is_active INTEGER NOT NULL DEFAULT 1",
+        "subscription_tier":  "ALTER TABLE users ADD COLUMN subscription_tier TEXT NOT NULL DEFAULT 'free'",
+        "last_login_at":      "ALTER TABLE users ADD COLUMN last_login_at TEXT",
+    }
+    for col, sql in migrations.items():
+        if col not in existing:
+            conn.execute(sql)
+
+
 def init_db():
     with get_db() as conn:
+        _migrate(conn)
         conn.executescript("""
+            CREATE TABLE IF NOT EXISTS users (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                email TEXT NOT NULL UNIQUE,
+                name TEXT NOT NULL DEFAULT '',
+                password_hash TEXT NOT NULL,
+                role TEXT NOT NULL DEFAULT 'user',
+                is_active INTEGER NOT NULL DEFAULT 1,
+                subscription_tier TEXT NOT NULL DEFAULT 'free',
+                last_login_at TEXT,
+                created_at TEXT NOT NULL DEFAULT (datetime('now'))
+            );
+
             CREATE TABLE IF NOT EXISTS guides (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 name TEXT NOT NULL,
