@@ -112,7 +112,9 @@ export default function TopoStage({
     if (!drag.current) return;
     const dx = e.clientX - drag.current.sx, dy = e.clientY - drag.current.sy;
     drag.current.moved += Math.abs(dx) + Math.abs(dy);
-    setPan(p => clamp({ x: drag.current!.px + dx, y: drag.current!.py + dy }));
+    // Capture px/py now so the value is safe even if drag.current is cleared before React flushes
+    const { px, py } = drag.current;
+    setPan(clamp({ x: px + dx, y: py + dy }));
   };
   const onUp = (e: React.PointerEvent) => {
     if (drag.current && drag.current.moved < 6) {
@@ -120,7 +122,7 @@ export default function TopoStage({
     }
     tapRouteN.current = null;
     drag.current = null;
-    (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
+    try { (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId); } catch {}
   };
   const onWheel = (e: React.WheelEvent) => {
     if (e.ctrlKey || e.metaKey) {
@@ -176,7 +178,7 @@ export default function TopoStage({
       ref={wrapRef}
       className={'topo-stage ' + className}
       style={{ position: 'relative', overflow: 'hidden', background: '#15140f', touchAction: 'none', cursor: drag.current ? 'grabbing' : 'grab', ...style }}
-      onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerLeave={onUp}
+      onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp}
       onWheel={onWheel}
     >
       <div style={{

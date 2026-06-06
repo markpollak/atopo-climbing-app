@@ -101,43 +101,54 @@ export default function TopoScreen({ crag, routes = [], photo = '', aspect = 2, 
         <div className="grip"></div>
         {route && (
           <>
-            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, marginBottom: 10 }}>
-              <span className="rnum" style={{ background: route.color, width: 28, height: 28, fontSize: 12, flex: 'none' }}>{route.n}</span>
+            {/* Sheet header: number + name on left, grade + actions + close on right */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+              {/* Route number */}
+              <span className="rnum" style={{ background: route.color, width: 30, height: 30, fontSize: 13, flex: 'none' }}>{route.n}</span>
+
+              {/* Name + meta */}
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 18, lineHeight: 1.05, marginBottom: 1 }}>{route.name}</div>
-                <div style={{ fontSize: 12.5, color: 'var(--ink-soft)' }}>{route.type || route.style} · {route.len}m · <span className="stars" style={{ fontSize: 11 }}>{'★'.repeat(route.stars)}</span></div>
+                <div style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 17, lineHeight: 1.05, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{route.name}</div>
+                <div style={{ fontSize: 11.5, color: 'var(--ink-soft)', marginTop: 1 }}>{route.type || route.style} · {route.len}m · <span className="stars" style={{ fontSize: 10 }}>{'★'.repeat(route.stars)}</span></div>
               </div>
-              <span className="grade" style={{ fontSize: 13, padding: '4px 9px' }}>{convertGrade(route.grade, gradeSystem)}</span>
-              <button className="iconbtn lite" style={{ width: 30, height: 30, flex: 'none' }} onClick={() => setSel(null)}><Icon.close /></button>
-            </div>
 
-            <div style={{ fontSize: 13.5, lineHeight: 1.65, color: 'var(--ink-soft)', maxHeight: 160, overflowY: 'auto', whiteSpace: 'pre-line', paddingRight: 4, marginBottom: 12 }} className="thin-scroll">
-              {route.desc}
-            </div>
+              {/* Grade pill */}
+              <span className="grade" style={{ fontSize: 12.5, padding: '4px 9px', flex: 'none' }}>{convertGrade(route.grade, gradeSystem)}</span>
 
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              {/* Project button */}
               <button onClick={() => setTicks(t => ({ ...t, [route.n]: t[route.n] === 'project' ? 'none' : 'project' }))}
-                style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1, justifyContent: 'center', padding: '9px 0',
+                title="Project"
+                style={{ width: 30, height: 30, borderRadius: 9, flex: 'none',
                   border: `1.5px solid ${statusOf(route) === 'project' ? 'var(--slate)' : 'var(--line-strong)'}`,
-                  borderRadius: 12, background: statusOf(route) === 'project' ? 'var(--slate)' : 'transparent',
-                  color: statusOf(route) === 'project' ? 'var(--chalk)' : 'var(--ink-soft)',
-                  cursor: 'pointer', fontFamily: 'var(--font-ui)', fontWeight: 600, fontSize: 13 }}>
-                <Icon.project /> {statusOf(route) === 'project' ? 'Saved' : 'Project'}
+                  background: statusOf(route) === 'project' ? 'var(--slate)' : 'transparent',
+                  color: statusOf(route) === 'project' ? 'var(--chalk)' : 'var(--ink-faint)',
+                  cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
               </button>
-              <button onClick={() => setTicks(t => ({ ...t, [route.n]: 'sent' }))}
-                style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1, justifyContent: 'center', padding: '9px 0',
+
+              {/* Tick button */}
+              <button onClick={() => setTicks(t => ({ ...t, [route.n]: t[route.n] === 'sent' ? 'none' : 'sent' }))}
+                title="Tick"
+                style={{ width: 30, height: 30, borderRadius: 9, flex: 'none',
                   border: `1.5px solid ${statusOf(route) === 'sent' ? 'var(--moss)' : 'var(--line-strong)'}`,
-                  borderRadius: 12, background: statusOf(route) === 'sent' ? 'var(--moss)' : 'transparent',
-                  color: statusOf(route) === 'sent' ? '#fff' : 'var(--ink-soft)',
-                  cursor: 'pointer', fontFamily: 'var(--font-ui)', fontWeight: 600, fontSize: 13 }}>
-                <Icon.tick /> {statusOf(route) === 'sent' ? 'Ticked ✓' : 'Tick'}
+                  background: statusOf(route) === 'sent' ? 'var(--moss)' : 'transparent',
+                  color: statusOf(route) === 'sent' ? '#fff' : 'var(--ink-faint)',
+                  cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M20 6 9 17l-5-5"/></svg>
               </button>
-              <button title="Add note"
-                style={{ width: 40, height: 40, borderRadius: 12, border: '1.5px solid var(--line-strong)',
-                  background: 'transparent', color: 'var(--ink-faint)', cursor: 'pointer',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 'none' }}>
-                <Icon.note />
+
+              {/* Close — rust background, white ✕ */}
+              <button onClick={() => setSel(null)}
+                style={{ width: 30, height: 30, borderRadius: 9, flex: 'none',
+                  border: 0, background: 'var(--rust)', color: '#fff',
+                  cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  boxShadow: 'var(--sh-sm)' }}>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.8"><path d="M18 6 6 18M6 6l12 12"/></svg>
               </button>
+            </div>
+
+            <div style={{ fontSize: 13, lineHeight: 1.6, color: 'var(--ink-soft)', maxHeight: 72, overflowY: 'auto', whiteSpace: 'pre-line', paddingRight: 4, marginTop: 8 }} className="thin-scroll">
+              {route.desc}
             </div>
           </>
         )}
