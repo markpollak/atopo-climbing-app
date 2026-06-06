@@ -43,7 +43,7 @@ Vite + React 18 + TypeScript. No backend yet — all data is local.
 
 ## Environment variables
 ```
-VITE_GOOGLE_MAPS_API_KEY=   # Google Maps JS API — map screen falls back to CSS if missing
+VITE_MAPBOX_TOKEN=          # Mapbox GL — map screen falls back to CSS illustration if missing
 ```
 Copy `.env.example` → `.env` and fill in.
 
