@@ -104,4 +104,14 @@ def init_db():
                 updated_at TEXT NOT NULL DEFAULT (datetime('now')),
                 UNIQUE(crag_id, n)
             );
+
+            CREATE TABLE IF NOT EXISTS ticks (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                route_id INTEGER NOT NULL REFERENCES routes(id) ON DELETE CASCADE,
+                ascent_type TEXT NOT NULL DEFAULT 'led',
+                notes TEXT NOT NULL DEFAULT '',
+                ticked_at TEXT NOT NULL DEFAULT (date('now')),
+                created_at TEXT NOT NULL DEFAULT (datetime('now'))
+            );
         """)

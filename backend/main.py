@@ -4,7 +4,7 @@ from fastapi.staticfiles import StaticFiles
 from pathlib import Path
 
 from .database import init_db
-from .routers import crags, routes, auth
+from .routers import crags, routes, auth, ticks
 
 app = FastAPI(title="Atopo API", version="0.1.0")
 
@@ -18,6 +18,7 @@ app.add_middleware(
 app.include_router(auth.router, prefix="/api")
 app.include_router(crags.router)
 app.include_router(routes.router)
+app.include_router(ticks.router)
 
 UPLOADS_DIR = Path(__file__).parent / "uploads"
 UPLOADS_DIR.mkdir(exist_ok=True)
