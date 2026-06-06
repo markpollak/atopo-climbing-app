@@ -128,11 +128,7 @@ export default function MapScreen({ onOpenCrag }: Props) {
           <Map
             {...viewState}
             onMove={(e: { viewState: typeof viewState }) => setViewState(e.viewState)}
-            mapStyle={
-              MAPBOX_TOKEN
-                ? `https://api.mapbox.com/styles/v1/mapbox/outdoors-v12?access_token=${MAPBOX_TOKEN}`
-                : 'https://demotiles.maplibre.org/style.json'
-            }
+            mapStyle="https://tiles.openfreemap.org/styles/liberty"
             style={{ width: '100%', height: '100%' }}
           >
             <NavigationControl position="bottom-right" showCompass={false} />
