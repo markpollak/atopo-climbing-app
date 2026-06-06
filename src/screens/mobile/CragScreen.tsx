@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Icon } from '../../components/Icons';
 import { STANAGE_PHOTO, STANAGE_CRAG, STANAGE_ROUTES } from '../../data/stanage';
+import type { useDownloads } from '../../storage/downloads';
 
 function gradeBands(routes: typeof STANAGE_ROUTES) {
   const order = ['VDiff', 'Severe', 'HS', 'VS', 'HVS', 'E1', 'E2', 'E3', 'E4'];
@@ -12,14 +13,19 @@ function gradeBands(routes: typeof STANAGE_ROUTES) {
 interface Props {
   onBack: () => void;
   onOpenTopo: () => void;
+  downloads: ReturnType<typeof useDownloads>;
 }
 
-export default function CragScreen({ onBack, onOpenTopo }: Props) {
+const CRAG_ID = 'stanage-edge';
+
+export default function CragScreen({ onBack, onOpenTopo, downloads }: Props) {
   const [tab, setTab] = useState('Overview');
   const tabs = ['Overview', 'Approach', 'Access', 'Sectors'];
   const c = STANAGE_CRAG;
   const bands = gradeBands(STANAGE_ROUTES);
   const maxc = Math.max(...bands.map(b => b.c));
+  const downloaded = downloads.isDownloaded(CRAG_ID);
+  const downloading = downloads.isDownloading(CRAG_ID);
 
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: 'var(--surface)' }}>
@@ -29,7 +35,10 @@ export default function CragScreen({ onBack, onOpenTopo }: Props) {
           <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(0deg, var(--surface) 1%, rgba(18,18,15,.15) 40%, rgba(18,18,15,.5))' }}></div>
           <div style={{ position: 'absolute', top: 0, left: 0, right: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '34px 16px 0' }}>
             <button className="iconbtn" onClick={onBack}><Icon.back /></button>
-            <div className="pill-offline" style={{ background: 'rgba(255,255,255,.2)', color: '#fff' }}><span className="dot"></span>Available offline</div>
+            {downloaded
+              ? <div className="pill-offline" style={{ background: 'rgba(255,255,255,.2)', color: '#fff' }}><span className="dot"></span>Available offline</div>
+              : <div className="pill-offline" style={{ background: 'rgba(0,0,0,.35)', color: 'rgba(255,255,255,.7)', border: 'none' }}>Online only</div>
+            }
           </div>
           <div style={{ position: 'absolute', left: 20, right: 20, bottom: 14, color: '#fff' }}>
             <div className="seclabel" style={{ color: 'rgba(255,255,255,.72)' }}>{c.area}</div>
@@ -108,7 +117,24 @@ export default function CragScreen({ onBack, onOpenTopo }: Props) {
 
       <div style={{ flex: 'none', display: 'flex', gap: 9, padding: '12px 16px', borderTop: '1px solid var(--line)', background: 'var(--card)' }}>
         <button className="btn btn-primary" style={{ flex: 1.4 }} onClick={onOpenTopo}>Open Topo</button>
-        <button className="btn btn-ghost btn-sm"><Icon.dl /> Crag</button>
+        {downloaded ? (
+          <button className="btn btn-ghost btn-sm" style={{ color: 'var(--moss)', gap: 5, flex: 1 }} disabled>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M20 6 9 17l-5-5"/></svg>
+            Saved
+          </button>
+        ) : (
+          <button
+            className="btn btn-ghost btn-sm"
+            style={{ flex: 1, gap: 5, opacity: downloading ? 0.6 : 1 }}
+            onClick={() => downloads.download(CRAG_ID, STANAGE_CRAG, STANAGE_ROUTES.length, STANAGE_PHOTO)}
+            disabled={downloading}
+          >
+            {downloading
+              ? <><span style={{ width: 13, height: 13, border: '2px solid currentColor', borderTopColor: 'transparent', borderRadius: '50%', display: 'inline-block', animation: 'spin 0.7s linear infinite' }} />Saving…</>
+              : <><Icon.dl />Download</>
+            }
+          </button>
+        )}
         <button className="btn btn-ghost btn-sm"><Icon.pin /></button>
       </div>
     </div>

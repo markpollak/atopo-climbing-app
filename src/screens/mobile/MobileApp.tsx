@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Icon } from '../../components/Icons';
+import { useDownloads } from '../../storage/downloads';
 import HomeScreen from './HomeScreen';
 import CragScreen from './CragScreen';
 import TopoScreen from './TopoScreen';
@@ -17,6 +18,7 @@ export default function MobileApp() {
   const [tab, setTab] = useState<MobileTab>('home');
   const [view, setView] = useState<MobileView>('home');
   const [gradeSystem, setGradeSystem] = useState<GradeSystem>('uk');
+  const downloads = useDownloads();
 
   const tabs: { id: MobileTab; label: string; Icon: () => JSX.Element }[] = [
     { id: 'home',    label: 'Home',    Icon: Icon.home },
@@ -38,13 +40,13 @@ export default function MobileApp() {
           gradeSystem={gradeSystem}
         />
       );
-      if (view === 'crag') return <CragScreen onBack={() => setView('home')} onOpenTopo={() => setView('topo')} />;
-      return <HomeScreen onOpenCrag={() => setView('crag')} onOpenTopo={() => setView('topo')} />;
+      if (view === 'crag') return <CragScreen onBack={() => setView('home')} onOpenTopo={() => setView('topo')} downloads={downloads} />;
+      return <HomeScreen onOpenCrag={() => setView('crag')} onOpenTopo={() => setView('topo')} downloads={downloads} />;
     }
     if (tab === 'map')     return <MapScreen onOpenCrag={() => { setTab('home'); setView('crag'); }} />;
     if (tab === 'search')  return <SearchScreen gradeSystem={gradeSystem} onOpenTopo={() => { setTab('home'); setView('topo'); }} />;
     if (tab === 'logbook') return <LogbookScreen />;
-    return <ProfileScreen gradeSystem={gradeSystem} onSetGradeSystem={setGradeSystem} />;
+    return <ProfileScreen gradeSystem={gradeSystem} onSetGradeSystem={setGradeSystem} downloads={downloads} />;
   }
 
   return (

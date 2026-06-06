@@ -1,10 +1,12 @@
 import { GRADE_SYSTEMS } from '../../data/grades';
 import { AtopoMark, AtopoWordmark } from '../../components/Icons';
 import type { GradeSystem } from '../../types';
+import type { useDownloads } from '../../storage/downloads';
 
 interface Props {
   gradeSystem: GradeSystem;
   onSetGradeSystem: (g: GradeSystem) => void;
+  downloads: ReturnType<typeof useDownloads>;
 }
 
 function Row({ label, value, onClick }: { label: string; value?: string; onClick?: () => void }) {
@@ -16,7 +18,7 @@ function Row({ label, value, onClick }: { label: string; value?: string; onClick
   );
 }
 
-export default function ProfileScreen({ gradeSystem, onSetGradeSystem }: Props) {
+export default function ProfileScreen({ gradeSystem, onSetGradeSystem, downloads }: Props) {
   return (
     <div style={{ flex: 1, overflowY: 'auto', background: 'var(--surface)' }} className="thin-scroll atopo-grain">
       {/* Header */}
@@ -57,12 +59,42 @@ export default function ProfileScreen({ gradeSystem, onSetGradeSystem }: Props) 
         ))}
       </div>
 
+      {/* Downloads */}
+      <div style={{ marginTop: 24, marginBottom: 6, padding: '0 20px' }}>
+        <div className="seclabel">Downloaded guides</div>
+      </div>
+      <div style={{ background: 'var(--card)', borderTop: '1px solid var(--line)', borderBottom: '1px solid var(--line)' }}>
+        {downloads.downloads.length === 0 ? (
+          <div style={{ padding: '16px 20px', fontSize: 13.5, color: 'var(--ink-faint)' }}>No guides downloaded.</div>
+        ) : (
+          downloads.downloads.map(d => (
+            <div key={d.id} style={{ display: 'flex', alignItems: 'center', padding: '12px 20px', borderBottom: '1px solid var(--line)', gap: 12 }}>
+              <div style={{ width: 40, height: 40, borderRadius: 10, overflow: 'hidden', flex: 'none' }}>
+                <img src={d.photoUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontWeight: 600, fontSize: 14, color: 'var(--ink)' }}>{d.crag.name}</div>
+                <div style={{ fontSize: 12, color: 'var(--ink-faint)', marginTop: 1 }}>{d.crag.area} · {d.sizeMb} MB</div>
+              </div>
+              <button onClick={() => downloads.remove(d.id)}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--rust)', fontSize: 12, fontWeight: 700, fontFamily: 'var(--font-ui)', padding: '4px 8px' }}>
+                Remove
+              </button>
+            </div>
+          ))
+        )}
+        {downloads.downloads.length > 0 && (
+          <div style={{ padding: '10px 20px', fontSize: 12, color: 'var(--ink-faint)' }}>
+            {downloads.downloads.length} guide{downloads.downloads.length > 1 ? 's' : ''} · {downloads.totalMb} MB total
+          </div>
+        )}
+      </div>
+
       {/* Preferences */}
       <div style={{ marginTop: 24, marginBottom: 6, padding: '0 20px' }}>
         <div className="seclabel">Preferences</div>
       </div>
       <div style={{ background: 'var(--card)', borderTop: '1px solid var(--line)', borderBottom: '1px solid var(--line)' }}>
-        <Row label="Offline storage" value="2.1 GB used" />
         <Row label="Auto-download updates" value="On" />
         <Row label="Show star ratings" value="On" />
         <Row label="Default map style" value="Terrain" />

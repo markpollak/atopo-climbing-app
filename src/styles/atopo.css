@@ -218,3 +218,5 @@ h1,h2,h3,h4 { font-family: var(--font-display); font-weight: 800; letter-spacing
 .st-table td { padding:8px 12px; border-bottom:1px solid var(--line); color:var(--ink-soft); }
 .st-table tr:hover td { background:var(--card); }
 .st-table tr.on td { background:rgba(200,107,60,.07); }
+
+@keyframes spin { to { transform: rotate(360deg); } }

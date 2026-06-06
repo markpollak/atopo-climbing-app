@@ -30,7 +30,7 @@ export default function TopoScreen({ crag, routes = [], photo = '', aspect = 2, 
   }, [sel]);
 
   const statusOf = (r: Route): RouteStatus => ticks[r.n] || r.status || 'none';
-  const stageH = expanded ? '66%' : '43%';
+  const stageH = expanded ? '82%' : '43%';
 
   return (
     <>

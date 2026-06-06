@@ -51,19 +51,22 @@ export default function TopoStage({
     return () => ro.disconnect();
   }, []);
 
-  const H = box.h * zoom;
+  // Natural (zoom=1) dimensions — zoom is applied via CSS scale so both
+  // size and position animate together in a single transform transition.
+  const H = box.h;
   const W = H * aspect;
   const vbH = 1000 / aspect;
 
-  const clamp = useCallback((p: { x: number; y: number }, w = W, h = H) => ({
-    x: Math.min(0, Math.max(box.w - w, p.x)),
-    y: Math.min(0, Math.max(box.h - h, p.y)),
-  }), [box.w, box.h, W, H]);
+  const clamp = useCallback((p: { x: number; y: number }, z = zoom) => ({
+    x: Math.min(0, Math.max(box.w - W * z, p.x)),
+    y: Math.min(0, Math.max(box.h - H * z, p.y)),
+  }), [box.w, box.h, W, H, zoom]);
 
   useEffect(() => {
     if (didInit.current || !box.w) return;
     didInit.current = true;
-    setPan(clamp({ x: 0, y: box.h - H }));
+    // Start with the image horizontally centred so zoom buttons feel natural
+    setPan({ x: Math.min(0, (box.w - W) / 2), y: 0 });
   }, [box.w, box.h]); // eslint-disable-line
 
   useEffect(() => {
@@ -74,24 +77,27 @@ export default function TopoStage({
     const ys = r.line.map(p => p[1]);
     const cx = (Math.min(...xs) + Math.max(...xs)) / 2;
     const cy = (Math.min(...ys) + Math.max(...ys)) / 2;
-    setPan(p => clamp({ x: box.w / 2 - cx * W, y: box.h * 0.56 - cy * H }));
+    setPan(clamp({ x: box.w / 2 - cx * W * zoom, y: box.h * 0.56 - cy * H * zoom }));
   }, [selected, box.w, box.h, zoom]); // eslint-disable-line
 
   const doZoom = useCallback((nz: number, ox?: number, oy?: number) => {
     nz = Math.max(minZoom, Math.min(maxZoom, nz));
+    const cx = ox ?? box.w / 2, cy = oy ?? box.h / 2;
     setZoom(z => {
-      const Hn = box.h * nz, Wn = Hn * aspect;
-      const cx = ox ?? box.w / 2, cy = oy ?? box.h / 2;
       setPan(p => {
-        const fx = (cx - p.x) / (box.h * z * aspect);
-        const fy = (cy - p.y) / (box.h * z);
-        return { x: Math.min(0, Math.max(box.w - Wn, cx - fx * Wn)), y: Math.min(0, Math.max(box.h - Hn, cy - fy * Hn)) };
+        const fx = (cx - p.x) / (W * z);
+        const fy = (cy - p.y) / (H * z);
+        return {
+          x: Math.min(0, Math.max(box.w - W * nz, cx - fx * W * nz)),
+          y: Math.min(0, Math.max(box.h - H * nz, cy - fy * H * nz)),
+        };
       });
       return nz;
     });
-  }, [box.w, box.h, aspect, minZoom, maxZoom]);
+  }, [box.w, box.h, W, H, minZoom, maxZoom]);
 
   const onDown = (e: React.PointerEvent) => {
+    if ((e.target as HTMLElement).closest('button')) return;
     drag.current = { sx: e.clientX, sy: e.clientY, px: pan.x, py: pan.y, moved: 0 };
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
   };
@@ -99,7 +105,7 @@ export default function TopoStage({
     if (!drag.current) return;
     const dx = e.clientX - drag.current.sx, dy = e.clientY - drag.current.sy;
     drag.current.moved += Math.abs(dx) + Math.abs(dy);
-    setPan(clamp({ x: drag.current.px + dx, y: drag.current.py + dy }));
+    setPan(p => clamp({ x: drag.current!.px + dx, y: drag.current!.py + dy }));
   };
   const onUp = (e: React.PointerEvent) => {
     drag.current = null;
@@ -126,8 +132,8 @@ export default function TopoStage({
     if (!stanceDrag.current) return;
     e.stopPropagation();
     const { idx, rect } = stanceDrag.current;
-    const nx = Math.max(0, Math.min(1, (e.clientX - rect.left - pan.x) / W));
-    const ny = Math.max(0, Math.min(1, (e.clientY - rect.top - pan.y) / H));
+    const nx = Math.max(0, Math.min(1, (e.clientX - rect.left - pan.x) / (W * zoom)));
+    const ny = Math.max(0, Math.min(1, (e.clientY - rect.top - pan.y) / (H * zoom)));
     onUpdateStance?.(idx, +nx.toFixed(4), +ny.toFixed(4));
   };
   const onStanceUp = (e: React.PointerEvent) => { stanceDrag.current = null; (e.target as HTMLElement).releasePointerCapture(e.pointerId); };
@@ -143,8 +149,8 @@ export default function TopoStage({
     if (!handleDrag.current) return;
     e.stopPropagation();
     const { idx, rect } = handleDrag.current;
-    const nx = Math.max(0, Math.min(1, (e.clientX - rect.left - pan.x) / W));
-    const ny = Math.max(0, Math.min(1, (e.clientY - rect.top - pan.y) / H));
+    const nx = Math.max(0, Math.min(1, (e.clientX - rect.left - pan.x) / (W * zoom)));
+    const ny = Math.max(0, Math.min(1, (e.clientY - rect.top - pan.y) / (H * zoom)));
     const r = routes.find(rr => rr.n === selected);
     if (!r) return;
     const nl = r.line.map((p, i) => i === idx ? [+nx.toFixed(4), +ny.toFixed(4)] : p) as [number,number][];
@@ -164,8 +170,9 @@ export default function TopoStage({
     >
       <div style={{
         position: 'absolute', width: W, height: H,
-        transform: `translate(${pan.x}px,${pan.y}px)`,
-        transition: drag.current ? 'none' : 'transform .45s cubic-bezier(.22,.61,.36,1)',
+        transform: `translate(${pan.x}px,${pan.y}px) scale(${zoom})`,
+        transformOrigin: '0 0',
+        transition: drag.current ? 'none' : 'transform .35s cubic-bezier(.22,.61,.36,1)',
         willChange: 'transform',
       }}>
         <img src={photo} alt="" draggable={false} style={{ width: '100%', height: '100%', objectFit: 'fill', display: 'block', userSelect: 'none' }} />
@@ -181,6 +188,11 @@ export default function TopoStage({
                 {isSel && <polyline points={pts} fill="none" stroke="#fff" vectorEffect="non-scaling-stroke" style={{ strokeWidth: 8, opacity: .55 }} strokeLinecap="round" strokeLinejoin="round" />}
                 <polyline points={pts} fill="none" stroke={r.color} vectorEffect="non-scaling-stroke"
                   style={{ strokeWidth: isSel ? 4 : 2.6, cursor: 'pointer', filter: 'drop-shadow(0 1px 2px rgba(0,0,0,.75))' }}
+                  strokeLinecap="round" strokeLinejoin="round" />
+                {/* Wide invisible hit area so the line is easy to tap */}
+                <polyline points={pts} fill="none" stroke="transparent"
+                  vectorEffect="non-scaling-stroke"
+                  style={{ strokeWidth: 28, cursor: 'pointer' }}
                   strokeLinecap="round" strokeLinejoin="round"
                   onClick={ev => { if ((drag.current?.moved || 0) < 6) { ev.stopPropagation(); onSelect?.(r.n); } }} />
                 <circle cx={r.line[0][0] * 1000} cy={r.line[0][1] * vbH} r={isSel ? 6 : 4}

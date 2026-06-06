@@ -1,6 +1,6 @@
 import { AtopoWordmark, Icon } from '../../components/Icons';
 import { STANAGE_PHOTO, STANAGE_CRAG, STANAGE_ROUTES } from '../../data/stanage';
-import { TOPO_PHOTO } from '../../data/bracken';
+import type { useDownloads } from '../../storage/downloads';
 
 function StatusRow({ dark = false }) {
   const c = dark ? '#fff' : 'var(--ink)';
@@ -28,9 +28,10 @@ function SectionHead({ title, action }: { title: string; action?: string }) {
 interface Props {
   onOpenCrag: () => void;
   onOpenTopo: () => void;
+  downloads: ReturnType<typeof useDownloads>;
 }
 
-export default function HomeScreen({ onOpenCrag, onOpenTopo }: Props) {
+export default function HomeScreen({ onOpenCrag, onOpenTopo, downloads }: Props) {
   return (
     <div style={{ flex: 1, overflowY: 'auto', background: 'var(--surface)' }} className="thin-scroll atopo-grain">
       <StatusRow />
@@ -53,28 +54,30 @@ export default function HomeScreen({ onOpenCrag, onOpenTopo }: Props) {
         </div>
       </div>
 
-      <SectionHead title="Downloaded guides" action="See all" />
-      <div style={{ display: 'flex', gap: 12, overflowX: 'auto', padding: '0 20px 4px' }} className="no-scrollbar">
-        {[
-          { t: 'Dark Peak Grit Demo', s: '18 crags · 540 routes', sz: '92 MB', ph: STANAGE_PHOTO },
-          { t: 'Peak Limestone Demo', s: '42 crags · 1,250 routes', sz: '180 MB', ph: TOPO_PHOTO },
-          { t: 'North Wales Sport', s: '12 crags · 360 routes', sz: '64 MB', ph: null },
-        ].map((g, i) => (
-          <div key={i} className="card" style={{ minWidth: 184, overflow: 'hidden', flex: 'none' }}>
-            <div style={{ height: 96, background: g.ph ? '#222' : 'var(--limestone)', position: 'relative' }}>
-              {g.ph ? <img src={g.ph} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                : <div className="atopo-contours" style={{ position: 'absolute', inset: 0 }}></div>}
-            </div>
-            <div style={{ padding: '10px 12px' }}>
-              <div style={{ fontWeight: 700, fontSize: 14 }}>{g.t}</div>
-              <div style={{ fontSize: 11.5, color: 'var(--ink-faint)', marginTop: 2 }}>{g.s}</div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 8, color: 'var(--moss)', fontSize: 11.5, fontWeight: 700 }}>
-                <span className="dot" style={{ width: 6, height: 6 }}></span>Offline · {g.sz}
+      <SectionHead title="Downloaded guides" action={downloads.downloads.length > 0 ? `${downloads.totalMb} MB used` : undefined} />
+      {downloads.downloads.length === 0 ? (
+        <div style={{ margin: '0 20px', padding: '18px 16px', background: 'var(--surface-2)', borderRadius: 'var(--r-md)', textAlign: 'center', color: 'var(--ink-faint)', fontSize: 13 }}>
+          <div style={{ marginBottom: 6, fontSize: 22 }}>📥</div>
+          No guides downloaded yet. Open a crag and tap <b>Download</b> to save it for offline use.
+        </div>
+      ) : (
+        <div style={{ display: 'flex', gap: 12, overflowX: 'auto', padding: '0 20px 4px' }} className="no-scrollbar">
+          {downloads.downloads.map(d => (
+            <div key={d.id} className="card" style={{ minWidth: 184, overflow: 'hidden', flex: 'none' }} onClick={onOpenCrag}>
+              <div style={{ height: 96, background: '#222', position: 'relative' }}>
+                <img src={d.photoUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              </div>
+              <div style={{ padding: '10px 12px' }}>
+                <div style={{ fontWeight: 700, fontSize: 14 }}>{d.crag.name}</div>
+                <div style={{ fontSize: 11.5, color: 'var(--ink-faint)', marginTop: 2 }}>{d.crag.area} · {d.routeCount} routes</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 8, color: 'var(--moss)', fontSize: 11.5, fontWeight: 700 }}>
+                  <span className="dot" style={{ width: 6, height: 6 }}></span>Offline · {d.sizeMb} MB
+                </div>
               </div>
             </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
 
       <SectionHead title="Recently viewed" />
       <div style={{ padding: '0 20px' }}>
