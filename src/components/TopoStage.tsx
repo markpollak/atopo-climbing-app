@@ -304,6 +304,7 @@ export default function TopoStage({
             const isSel = selected === r.n;
             const dim = dimUnselected && selected != null && !isSel;
             const d = catmullRom(r.line, vbH);
+            if (!d) return null;  // no line drawn yet
             return (
               <g key={r.n} style={{ transition: 'opacity .3s' }} opacity={dim ? 0.32 : 1}>
                 {isSel && <path d={d} fill="none" stroke="#fff" vectorEffect="non-scaling-stroke" style={{ strokeWidth: 8, opacity: .55 }} strokeLinecap="round" strokeLinejoin="round" />}
@@ -327,6 +328,7 @@ export default function TopoStage({
           const isSel = selected === r.n;
           const dim = dimUnselected && selected != null && !isSel;
           const top = r.line[r.line.length - 1];
+          if (!top) return null;  // route has no line yet — skip label
           return (
             <button key={'lab' + r.n} onClick={e => { e.stopPropagation(); onSelect?.(r.n); }}
               style={{ position: 'absolute', left: `${top[0] * 100}%`, top: `${top[1] * 100}%`,

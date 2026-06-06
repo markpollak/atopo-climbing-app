@@ -315,31 +315,70 @@ function PublishPanel({ routes, crag, onUploaded }: { routes: ApiRoute[]; crag: 
   );
 }
 
-// ─── StudioApp ────────────────────────────────────────────────────────────────
+// ─── Placeholder photo for crags with no topo uploaded yet ───────────────────
 
-const CRAG_ID = 1;
+function makePlaceholder(name: string, aspect = 1.85): string {
+  const W = 1000, H = Math.round(W / aspect);
+  const cx = W / 2;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">
+    <defs>
+      <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#3A3E3C"/>
+        <stop offset="100%" stop-color="#1C1E1D"/>
+      </linearGradient>
+    </defs>
+    <rect width="${W}" height="${H}" fill="url(#bg)"/>
+    <polygon points="${cx-240},${H*0.78} ${cx-140},${H*0.32} ${cx-40},${H*0.42} ${cx+60},${H*0.22} ${cx+200},${H*0.38} ${cx+260},${H*0.68} ${cx+260},${H*0.82} ${cx-240},${H*0.82}" fill="#4A4E4C" opacity="0.55"/>
+    ${Array.from({length:5},(_,i)=>`<line x1="0" y1="${H*(i+1)/6}" x2="${W}" y2="${H*(i+1)/6}" stroke="rgba(255,255,255,0.035)" stroke-width="1"/>`).join('')}
+    ${Array.from({length:8},(_,i)=>`<line x1="${W*(i+1)/9}" y1="0" x2="${W*(i+1)/9}" y2="${H}" stroke="rgba(255,255,255,0.035)" stroke-width="1"/>`).join('')}
+    <text x="${cx}" y="${H*0.52}" font-family="Arial,sans-serif" font-size="52" font-weight="800" fill="rgba(255,255,255,0.45)" text-anchor="middle">${name}</text>
+    <text x="${cx}" y="${H*0.6}" font-family="Arial,sans-serif" font-size="26" fill="rgba(255,255,255,0.22)" text-anchor="middle">Upload a topo photo to begin</text>
+    <polyline points="${cx-24},${H*0.3} ${cx-8},${H*0.38} ${cx+16},${H*0.33} ${cx+4},${H*0.42}" fill="none" stroke="#E3483E" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="${cx-24}" cy="${H*0.3}" r="11" fill="#E3483E" stroke="white" stroke-width="5"/>
+    <circle cx="${cx+4}" cy="${H*0.42}" r="11" fill="#E3483E" stroke="white" stroke-width="5"/>
+  </svg>`;
+  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+}
+
+// ─── StudioApp ────────────────────────────────────────────────────────────────
 
 export default function StudioApp() {
   const [activeTab, setActiveTab] = useState<StudioTab>('editor');
+  const [allCrags, setAllCrags] = useState<ApiCrag[]>([]);
+  const [activeCragId, setActiveCragId] = useState<number>(1);
   const [crag, setCrag] = useState<ApiCrag | null>(null);
   const [apiRoutes, setApiRoutes] = useState<ApiRoute[]>([]);
   const [loading, setLoading] = useState(true);
+  const [cragLoading, setCragLoading] = useState(false);
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [showLabels, setShowLabels] = useState(true);
   const [isolate, setIsolate] = useState(false);
   const [saving, setSaving] = useState(false);
   const [tool, setTool] = useState<'select' | 'draw'>('select');
 
-  // Photo: use uploaded URL if present, fall back to bundled asset
-  const photoSrc = crag?.photo_url || STANAGE_PHOTO;
+  // Photo: uploaded URL → placeholder SVG
+  const photoSrc = crag?.photo_url
+    ? `/uploads/${crag.photo_url.split('/uploads/')[1]}`
+    : makePlaceholder(crag?.name ?? 'Crag', crag?.photo_aspect ?? STANAGE_ASPECT);
   const photoAspect = crag?.photo_aspect || STANAGE_ASPECT;
 
+  // Load crag list on mount
   useEffect(() => {
-    Promise.all([api.crags.get(CRAG_ID), api.routes.list(CRAG_ID)])
+    api.crags.list()
+      .then(setAllCrags)
+      .catch(console.error);
+  }, []);
+
+  // Load routes whenever activeCragId changes
+  useEffect(() => {
+    setCragLoading(true);
+    setSelectedId(null);
+    setApiRoutes([]);
+    Promise.all([api.crags.get(activeCragId), api.routes.list(activeCragId)])
       .then(([c, rs]) => { setCrag(c); setApiRoutes(rs); })
       .catch(console.error)
-      .finally(() => setLoading(false));
-  }, []);
+      .finally(() => { setLoading(false); setCragLoading(false); });
+  }, [activeCragId]);
 
   const selApiRoute = selectedId != null ? apiRoutes.find(r => r.id === selectedId) ?? null : null;
   const selN = selApiRoute?.n ?? null;
@@ -356,7 +395,7 @@ export default function StudioApp() {
     saveTimer.current = setTimeout(async () => {
       setSaving(true);
       try {
-        const saved = await api.routes.update(CRAG_ID, updated.id, {
+        const saved = await api.routes.update(activeCragId, updated.id, {
           name: updated.name,
           grade: updated.grade,
           stars: updated.stars,
@@ -374,13 +413,13 @@ export default function StudioApp() {
         setSaving(false);
       }
     }, 600);
-  }, []);
+  }, [activeCragId]);
 
   const handleDrawComplete = useCallback(async (line: [number, number][]) => {
     setTool('select');
     setSaving(true);
     try {
-      const created = await api.routes.create(CRAG_ID, { line });
+      const created = await api.routes.create(activeCragId, { line });
       setApiRoutes(rs => [...rs, created]);
       setSelectedId(created.id);
     } catch (e) {
@@ -397,20 +436,14 @@ export default function StudioApp() {
     if (!target) return;
     setSaving(true);
     try {
-      const saved = await api.routes.update(CRAG_ID, target.id, { line });
+      const saved = await api.routes.update(activeCragId, target.id, { line });
       setApiRoutes(rs => rs.map(r => r.id === saved.id ? saved : r));
     } catch (e) {
       console.error('Line save failed:', e);
     } finally {
       setSaving(false);
     }
-  }, [apiRoutes]);
-
-  const navItems = [
-    { label: 'Dark Peak Grit Demo', type: 'guide' },
-    { label: crag?.name || 'Stanage Edge', type: 'crag', active: true },
-    ...((crag as ApiCrag & { sectors?: { name: string }[] })?.sectors ?? []).map(s => ({ label: s.name, type: 'sector', indent: true })),
-  ];
+  }, [apiRoutes, activeCragId]);
 
   if (loading) {
     return (
@@ -425,7 +458,7 @@ export default function StudioApp() {
       {/* App bar */}
       <div className="st-appbar">
         <AtopoWordmark size={20} />
-        <span style={{ flex: 1, fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 15, marginLeft: 8 }}>Dark Peak Grit Demo</span>
+        <span style={{ flex: 1, fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 15, marginLeft: 8 }}>{crag?.name ?? '…'}</span>
         <span className="chip chip-rust" style={{ fontSize: 11.5 }}>Draft</span>
         {saving && <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--ink-faint)' }}>Saving…</span>}
         <button className="btn btn-primary btn-sm">Publish Update</button>
@@ -444,15 +477,20 @@ export default function StudioApp() {
         {/* Left sidebar */}
         <div className="st-side">
           <div style={{ padding: '12px 18px 8px', borderBottom: '1px solid var(--line)' }}>
-            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10.5, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--ink-faint)' }}>Content</span>
+            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10.5, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--ink-faint)' }}>Crags</span>
           </div>
-          {navItems.map((item, i) => (
-            <button key={i} className={'tree-row' + ((item as { active?: boolean }).active ? ' on' : '')}
-              style={{ marginLeft: (item as { indent?: boolean }).indent ? 16 : 0, paddingLeft: (item as { indent?: boolean }).indent ? 14 : 18 }}>
-              <span style={{ fontSize: 10, opacity: .5 }}>
-                {item.type === 'guide' ? '📖' : item.type === 'crag' ? '🧗' : '—'}
-              </span>
-              {item.label}
+          {allCrags.map(c => (
+            <button
+              key={c.id}
+              className={'tree-row' + (c.id === activeCragId ? ' on' : '')}
+              onClick={() => setActiveCragId(c.id)}
+              style={{ paddingLeft: 18, display: 'flex', alignItems: 'center', gap: 8 }}
+            >
+              <span style={{ fontSize: 10, opacity: 0.5 }}>🧗</span>
+              <span style={{ flex: 1, textAlign: 'left', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name}</span>
+              {!c.photo_url && (
+                <span title="No photo yet" style={{ fontSize: 9, fontFamily: 'var(--font-mono)', background: 'rgba(200,107,60,.15)', color: 'var(--rust)', borderRadius: 4, padding: '1px 4px', flex: 'none' }}>NO PHOTO</span>
+              )}
             </button>
           ))}
         </div>
@@ -476,7 +514,12 @@ export default function StudioApp() {
               </span>
             </div>
             <div style={{ flex: 1, padding: 18, overflow: 'hidden', display: 'flex', flexDirection: 'column', position: 'relative' }}>
-              {selApiRoute && (
+              {cragLoading && (
+                <div style={{ position: 'absolute', inset: 0, zIndex: 30, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(251,248,241,.7)', backdropFilter: 'blur(4px)', borderRadius: 'var(--r-md)' }}>
+                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: 13, color: 'var(--ink-faint)' }}>Loading…</span>
+                </div>
+              )}
+              {selApiRoute && !cragLoading && (
                 <div style={{ position: 'absolute', top: 28, left: 28, zIndex: 20, background: 'rgba(255,255,255,.88)', backdropFilter: 'blur(6px)', borderRadius: 8, padding: '5px 10px', fontSize: 12.5, color: 'var(--ink-soft)', pointerEvents: 'none', boxShadow: 'var(--sh-sm)' }}>
                   <b style={{ color: 'var(--ink)' }}>{selApiRoute.name}</b> — drag to move · double-click to delete a point
                 </div>
