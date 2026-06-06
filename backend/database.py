@@ -16,9 +16,10 @@ def get_db() -> sqlite3.Connection:
 def _migrate(conn):
     existing = {row[1] for row in conn.execute("PRAGMA table_info(users)").fetchall()}
     migrations = {
-        "is_active":          "ALTER TABLE users ADD COLUMN is_active INTEGER NOT NULL DEFAULT 1",
-        "subscription_tier":  "ALTER TABLE users ADD COLUMN subscription_tier TEXT NOT NULL DEFAULT 'free'",
-        "last_login_at":      "ALTER TABLE users ADD COLUMN last_login_at TEXT",
+        "is_active":               "ALTER TABLE users ADD COLUMN is_active INTEGER NOT NULL DEFAULT 1",
+        "subscription_tier":       "ALTER TABLE users ADD COLUMN subscription_tier TEXT NOT NULL DEFAULT 'free'",
+        "subscription_valid_until":"ALTER TABLE users ADD COLUMN subscription_valid_until TEXT",
+        "last_login_at":           "ALTER TABLE users ADD COLUMN last_login_at TEXT",
     }
     for col, sql in migrations.items():
         if col not in existing:
@@ -38,6 +39,14 @@ def init_db():
                 is_active INTEGER NOT NULL DEFAULT 1,
                 subscription_tier TEXT NOT NULL DEFAULT 'free',
                 last_login_at TEXT,
+                created_at TEXT NOT NULL DEFAULT (datetime('now'))
+            );
+
+            CREATE TABLE IF NOT EXISTS refresh_tokens (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                token_hash TEXT NOT NULL UNIQUE,
+                expires_at TEXT NOT NULL,
                 created_at TEXT NOT NULL DEFAULT (datetime('now'))
             );
 

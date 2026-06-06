@@ -41,12 +41,14 @@ export interface ApiUser {
   role: string;
   is_active: number;
   subscription_tier: string;
+  subscription_valid_until: string | null;
   last_login_at: string | null;
   created_at: string;
 }
 
 export interface AuthResponse {
   token: string;
+  refresh_token: string;
   user: ApiUser;
 }
 
@@ -93,8 +95,8 @@ export const api = {
       request<ApiUser>(`/auth/admin/users/${id}/role`, { method: 'PATCH', body: JSON.stringify({ role }) }),
     setStatus: (id: number, is_active: boolean) =>
       request<ApiUser>(`/auth/admin/users/${id}/status`, { method: 'PATCH', body: JSON.stringify({ is_active }) }),
-    setTier: (id: number, subscription_tier: string) =>
-      request<ApiUser>(`/auth/admin/users/${id}/tier`, { method: 'PATCH', body: JSON.stringify({ subscription_tier }) }),
+    setSubscription: (id: number, subscription_tier: string, subscription_valid_until: string | null) =>
+      request<ApiUser>(`/auth/admin/users/${id}/subscription`, { method: 'PATCH', body: JSON.stringify({ subscription_tier, subscription_valid_until }) }),
     resetPassword: (id: number, new_password: string) =>
       request<void>(`/auth/admin/users/${id}/reset-password`, { method: 'POST', body: JSON.stringify({ new_password }) }),
     deleteUser: (id: number) =>

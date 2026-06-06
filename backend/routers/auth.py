@@ -1,4 +1,6 @@
 import os
+import secrets
+import hashlib
 from datetime import datetime, timedelta
 from typing import Optional
 
@@ -12,14 +14,15 @@ from ..database import get_db
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
-SECRET_KEY = os.getenv("JWT_SECRET", "atopo-dev-secret-change-in-production")
-ALGORITHM = "HS256"
-TOKEN_EXPIRE_DAYS = 30
+SECRET_KEY       = os.getenv("JWT_SECRET", "atopo-dev-secret-change-in-production")
+ALGORITHM        = "HS256"
+JWT_TTL_DAYS     = 0.001  # ~1.5 min — for testing offline gate; change back to 7 after
+REFRESH_TTL_DAYS = 90
 
 bearer = HTTPBearer(auto_error=False)
 
 
-# --- Schemas ---
+# ─── Schemas ──────────────────────────────────────────────────────────────────
 
 class RegisterRequest(BaseModel):
     email: str
@@ -30,19 +33,8 @@ class LoginRequest(BaseModel):
     email: str
     password: str
 
-class UserOut(BaseModel):
-    id: int
-    email: str
-    name: str
-    role: str
-    is_active: int
-    subscription_tier: str
-    last_login_at: Optional[str]
-    created_at: str
-
-class TokenResponse(BaseModel):
-    token: str
-    user: UserOut
+class RefreshRequest(BaseModel):
+    refresh_token: str
 
 class ChangePasswordRequest(BaseModel):
     current_password: str
@@ -57,37 +49,85 @@ class SetRoleRequest(BaseModel):
 class SetStatusRequest(BaseModel):
     is_active: bool
 
-class SetTierRequest(BaseModel):
+class SetSubscriptionRequest(BaseModel):
     subscription_tier: str
+    subscription_valid_until: Optional[str] = None  # ISO date YYYY-MM-DD
+
+class UserOut(BaseModel):
+    id: int
+    email: str
+    name: str
+    role: str
+    is_active: int
+    subscription_tier: str
+    subscription_valid_until: Optional[str]
+    last_login_at: Optional[str]
+    created_at: str
+
+class TokenResponse(BaseModel):
+    token: str
+    refresh_token: str
+    user: UserOut
 
 
-# --- Helpers ---
+# ─── Helpers ──────────────────────────────────────────────────────────────────
 
-def hash_password(password: str) -> str:
-    return bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
+def hash_password(pw: str) -> str:
+    return bcrypt.hashpw(pw.encode(), bcrypt.gensalt()).decode()
 
 def verify_password(plain: str, hashed: str) -> bool:
     return bcrypt.checkpw(plain.encode(), hashed.encode())
 
-def create_token(user_id: int) -> str:
-    expire = datetime.utcnow() + timedelta(days=TOKEN_EXPIRE_DAYS)
-    return jwt.encode({"sub": str(user_id), "exp": expire}, SECRET_KEY, algorithm=ALGORITHM)
+def _hash_token(token: str) -> str:
+    return hashlib.sha256(token.encode()).hexdigest()
 
-def decode_token(token: str) -> Optional[int]:
+def _make_jwt(user: dict) -> str:
+    expire = datetime.utcnow() + timedelta(days=JWT_TTL_DAYS)
+    return jwt.encode({
+        "sub":                    str(user["id"]),
+        "role":                   user["role"],
+        "subscription_tier":      user.get("subscription_tier", "free"),
+        "subscription_valid_until": user.get("subscription_valid_until"),
+        "exp":                    expire,
+    }, SECRET_KEY, algorithm=ALGORITHM)
+
+def _make_refresh_token(user_id: int) -> str:
+    token = secrets.token_urlsafe(48)
+    expires_at = (datetime.utcnow() + timedelta(days=REFRESH_TTL_DAYS)).isoformat()
+    with get_db() as conn:
+        # purge old tokens for this user beyond 5
+        conn.execute("""
+            DELETE FROM refresh_tokens WHERE user_id = ? AND id NOT IN (
+                SELECT id FROM refresh_tokens WHERE user_id = ? ORDER BY created_at DESC LIMIT 4
+            )
+        """, (user_id, user_id))
+        conn.execute(
+            "INSERT INTO refresh_tokens (user_id, token_hash, expires_at) VALUES (?,?,?)",
+            (user_id, _hash_token(token), expires_at)
+        )
+    return token
+
+def _issue_tokens(user: dict) -> TokenResponse:
+    return TokenResponse(
+        token=_make_jwt(user),
+        refresh_token=_make_refresh_token(user["id"]),
+        user=UserOut(**user),
+    )
+
+def decode_token(token: str) -> Optional[dict]:
     try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        return int(payload["sub"])
+        return jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
     except JWTError:
         return None
 
 def get_current_user(credentials: Optional[HTTPAuthorizationCredentials] = Depends(bearer)):
     if not credentials:
         raise HTTPException(status_code=401, detail="Not authenticated")
-    user_id = decode_token(credentials.credentials)
-    if not user_id:
+    payload = decode_token(credentials.credentials)
+    if not payload:
         raise HTTPException(status_code=401, detail="Invalid or expired token")
     with get_db() as conn:
-        row = conn.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
+        row = conn.execute("SELECT * FROM users WHERE id = ?", (int(payload["sub"]),)).fetchone()
     if not row:
         raise HTTPException(status_code=401, detail="User not found")
     user = dict(row)
@@ -107,7 +147,7 @@ def _get_user_or_404(conn, user_id: int):
     return dict(row)
 
 
-# --- Public routes ---
+# ─── Public routes ────────────────────────────────────────────────────────────
 
 @router.post("/register", response_model=TokenResponse, status_code=201)
 def register(body: RegisterRequest):
@@ -115,12 +155,11 @@ def register(body: RegisterRequest):
         if conn.execute("SELECT id FROM users WHERE email = ?", (body.email.lower(),)).fetchone():
             raise HTTPException(status_code=409, detail="Email already registered")
         cur = conn.execute(
-            "INSERT INTO users (email, name, password_hash) VALUES (?, ?, ?)",
+            "INSERT INTO users (email, name, password_hash) VALUES (?,?,?)",
             (body.email.lower(), body.name.strip(), hash_password(body.password)),
         )
         row = conn.execute("SELECT * FROM users WHERE id = ?", (cur.lastrowid,)).fetchone()
-    user = dict(row)
-    return TokenResponse(token=create_token(user["id"]), user=UserOut(**user))
+    return _issue_tokens(dict(row))
 
 
 @router.post("/login", response_model=TokenResponse)
@@ -133,8 +172,29 @@ def login(body: LoginRequest):
             raise HTTPException(status_code=403, detail="Account deactivated")
         conn.execute("UPDATE users SET last_login_at = datetime('now') WHERE id = ?", (row["id"],))
         updated = conn.execute("SELECT * FROM users WHERE id = ?", (row["id"],)).fetchone()
-    user = dict(updated)
-    return TokenResponse(token=create_token(user["id"]), user=UserOut(**user))
+    return _issue_tokens(dict(updated))
+
+
+@router.post("/refresh", response_model=TokenResponse)
+def refresh(body: RefreshRequest):
+    token_hash = _hash_token(body.refresh_token)
+    with get_db() as conn:
+        rt = conn.execute(
+            "SELECT * FROM refresh_tokens WHERE token_hash = ?", (token_hash,)
+        ).fetchone()
+        if not rt:
+            raise HTTPException(status_code=401, detail="Invalid refresh token")
+        if datetime.fromisoformat(rt["expires_at"]) < datetime.utcnow():
+            conn.execute("DELETE FROM refresh_tokens WHERE token_hash = ?", (token_hash,))
+            raise HTTPException(status_code=401, detail="Refresh token expired")
+        row = conn.execute("SELECT * FROM users WHERE id = ?", (rt["user_id"],)).fetchone()
+        if not row or not row["is_active"]:
+            raise HTTPException(status_code=403, detail="Account deactivated")
+        # rotate: delete old, issue new
+        conn.execute("DELETE FROM refresh_tokens WHERE token_hash = ?", (token_hash,))
+        conn.execute("UPDATE users SET last_login_at = datetime('now') WHERE id = ?", (row["id"],))
+        updated = conn.execute("SELECT * FROM users WHERE id = ?", (row["id"],)).fetchone()
+    return _issue_tokens(dict(updated))
 
 
 @router.get("/me", response_model=UserOut)
@@ -153,31 +213,22 @@ def change_password(body: ChangePasswordRequest, user=Depends(get_current_user))
                      (hash_password(body.new_password), user["id"]))
 
 
-# --- Admin routes ---
+# ─── Admin routes ─────────────────────────────────────────────────────────────
 
 @router.get("/admin/stats")
 def admin_stats(admin=Depends(require_admin)):
     with get_db() as conn:
-        total_users   = conn.execute("SELECT COUNT(*) FROM users").fetchone()[0]
-        active_users  = conn.execute("SELECT COUNT(*) FROM users WHERE is_active = 1").fetchone()[0]
-        new_this_week = conn.execute(
-            "SELECT COUNT(*) FROM users WHERE created_at >= datetime('now', '-7 days')"
-        ).fetchone()[0]
-        new_this_month = conn.execute(
-            "SELECT COUNT(*) FROM users WHERE created_at >= datetime('now', '-30 days')"
-        ).fetchone()[0]
-        total_crags   = conn.execute("SELECT COUNT(*) FROM crags").fetchone()[0]
-        total_routes  = conn.execute("SELECT COUNT(*) FROM routes").fetchone()[0]
-        tier_counts   = dict(conn.execute(
-            "SELECT subscription_tier, COUNT(*) FROM users GROUP BY subscription_tier"
-        ).fetchall())
+        total_users    = conn.execute("SELECT COUNT(*) FROM users").fetchone()[0]
+        active_users   = conn.execute("SELECT COUNT(*) FROM users WHERE is_active = 1").fetchone()[0]
+        new_this_week  = conn.execute("SELECT COUNT(*) FROM users WHERE created_at >= datetime('now','-7 days')").fetchone()[0]
+        new_this_month = conn.execute("SELECT COUNT(*) FROM users WHERE created_at >= datetime('now','-30 days')").fetchone()[0]
+        total_crags    = conn.execute("SELECT COUNT(*) FROM crags").fetchone()[0]
+        total_routes   = conn.execute("SELECT COUNT(*) FROM routes").fetchone()[0]
+        tier_counts    = dict(conn.execute("SELECT subscription_tier, COUNT(*) FROM users GROUP BY subscription_tier").fetchall())
     return {
-        "total_users": total_users,
-        "active_users": active_users,
-        "new_this_week": new_this_week,
-        "new_this_month": new_this_month,
-        "total_crags": total_crags,
-        "total_routes": total_routes,
+        "total_users": total_users, "active_users": active_users,
+        "new_this_week": new_this_week, "new_this_month": new_this_month,
+        "total_crags": total_crags, "total_routes": total_routes,
         "tier_counts": tier_counts,
     }
 
@@ -211,14 +262,17 @@ def set_status(user_id: int, body: SetStatusRequest, admin=Depends(require_admin
     return UserOut(**dict(row))
 
 
-@router.patch("/admin/users/{user_id}/tier", response_model=UserOut)
-def set_tier(user_id: int, body: SetTierRequest, admin=Depends(require_admin)):
-    valid = {"free", "pro", "expired"}
-    if body.subscription_tier not in valid:
-        raise HTTPException(status_code=422, detail=f"Tier must be one of {valid}")
+@router.patch("/admin/users/{user_id}/subscription", response_model=UserOut)
+def set_subscription(user_id: int, body: SetSubscriptionRequest, admin=Depends(require_admin)):
+    valid_tiers = {"free", "pro", "expired"}
+    if body.subscription_tier not in valid_tiers:
+        raise HTTPException(status_code=422, detail=f"Tier must be one of {valid_tiers}")
     with get_db() as conn:
         _get_user_or_404(conn, user_id)
-        conn.execute("UPDATE users SET subscription_tier = ? WHERE id = ?", (body.subscription_tier, user_id))
+        conn.execute(
+            "UPDATE users SET subscription_tier = ?, subscription_valid_until = ? WHERE id = ?",
+            (body.subscription_tier, body.subscription_valid_until, user_id)
+        )
         row = conn.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
     return UserOut(**dict(row))
 
