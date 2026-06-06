@@ -34,25 +34,28 @@ export default function TopoScreen({ crag, routes = [], photo = '', aspect = 2, 
 
   return (
     <>
-      <div className="topbar">
-        <button className="iconbtn" onClick={onBack}><Icon.back /></button>
-        <div style={{ flex: 1, lineHeight: 1.1 }}>
-          <div style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 17 }}>{crag?.name}</div>
-          <div style={{ fontSize: 11.5, opacity: .82, marginTop: 1 }}>{crag?.area} · {crag?.type} · {routes.length} routes</div>
-        </div>
-        <div className="pill-offline" style={{ background: 'rgba(255,255,255,.18)', color: '#fff' }}>
-          <span className="dot"></span>Offline
-        </div>
-        <button className={'iconbtn' + (labels ? ' on' : '')} onClick={() => setLabels(v => !v)} title="Toggle labels">
-          <Icon.tag />
-        </button>
-      </div>
-
       <div style={{ position: 'relative', height: stageH, flex: 'none', transition: 'height .35s cubic-bezier(.22,.61,.36,1)' }}>
         <TopoStage photo={photo} aspect={aspect} routes={routes}
           selected={sel} onSelect={setSel} showLabels={labels}
           stances={route?.stances || null}
           style={{ width: '100%', height: '100%' }} />
+        {/* Back arrow */}
+        <button className="iconbtn" onClick={onBack}
+          style={{ position: 'absolute', top: 10, left: 10, zIndex: 20,
+            background: 'rgba(21,20,15,.52)', color: '#fff',
+            backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)', border: 0 }}>
+          <Icon.back />
+        </button>
+        {/* Label toggle — smaller */}
+        <button onClick={() => setLabels(v => !v)}
+          style={{ position: 'absolute', top: 10, right: 10, zIndex: 20,
+            width: 28, height: 28, borderRadius: 8, border: 0,
+            background: labels ? 'var(--rust)' : 'rgba(21,20,15,.52)', color: '#fff', cursor: 'pointer',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)' }}>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
+        </button>
+        {/* Expand/collapse */}
         <button onClick={() => setExpanded(v => !v)}
           style={{ position: 'absolute', left: 10, bottom: 10, zIndex: 10, width: 34, height: 34,
             borderRadius: 9, border: 0, background: 'rgba(21,20,15,.56)', color: '#fff', cursor: 'pointer',
@@ -63,7 +66,7 @@ export default function TopoScreen({ crag, routes = [], photo = '', aspect = 2, 
       </div>
 
       <div className="listhead">
-        <div style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 15 }}>Routes</div>
+        <div style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 15 }}>{crag?.name}</div>
         <span className="chip" style={{ padding: '3px 9px', fontSize: 11.5, marginLeft: 'auto' }}>{routes.length}</span>
       </div>
 

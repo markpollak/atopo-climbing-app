@@ -6,7 +6,7 @@ interface Props {
   aspect: number;
   routes: Route[];
   selected: number | null;
-  onSelect?: (n: number) => void;
+  onSelect?: (n: number | null) => void;
   showLabels?: boolean;
   dimUnselected?: boolean;
   minZoom?: number;
@@ -39,6 +39,11 @@ export default function TopoStage({
   const [box, setBox] = useState({ w: 0, h: 0 });
   const [zoom, setZoom] = useState(initialZoom);
   const [pan, setPan] = useState({ x: 0, y: 0 });
+  // Refs so doZoom always has fresh values without pan/zoom in its dep array
+  const zoomRef = useRef(zoom);
+  const panRef = useRef(pan);
+  zoomRef.current = zoom;
+  panRef.current = pan;
   const drag = useRef<{ sx: number; sy: number; px: number; py: number; moved: number } | null>(null);
   const didInit = useRef(false);
 
@@ -83,21 +88,23 @@ export default function TopoStage({
   const doZoom = useCallback((nz: number, ox?: number, oy?: number) => {
     nz = Math.max(minZoom, Math.min(maxZoom, nz));
     const cx = ox ?? box.w / 2, cy = oy ?? box.h / 2;
-    setZoom(z => {
-      setPan(p => {
-        const fx = (cx - p.x) / (W * z);
-        const fy = (cy - p.y) / (H * z);
-        return {
-          x: Math.min(0, Math.max(box.w - W * nz, cx - fx * W * nz)),
-          y: Math.min(0, Math.max(box.h - H * nz, cy - fy * H * nz)),
-        };
-      });
-      return nz;
+    const ratio = nz / zoomRef.current;
+    const newX = cx - (cx - panRef.current.x) * ratio;
+    const newY = cy - (cy - panRef.current.y) * ratio;
+    setZoom(nz);
+    setPan({
+      x: Math.min(0, Math.max(box.w - W * nz, newX)),
+      y: Math.min(0, Math.max(box.h - H * nz, newY)),
     });
   }, [box.w, box.h, W, H, minZoom, maxZoom]);
 
+  const tapRouteN = useRef<number | null>(null);
+
   const onDown = (e: React.PointerEvent) => {
     if ((e.target as HTMLElement).closest('button')) return;
+    // Detect tap on a route hit-area — store it; fire selection in onUp if not a drag
+    const hit = (e.target as Element).closest('[data-route-n]');
+    tapRouteN.current = hit ? Number(hit.getAttribute('data-route-n')) : null;
     drag.current = { sx: e.clientX, sy: e.clientY, px: pan.x, py: pan.y, moved: 0 };
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
   };
@@ -108,6 +115,10 @@ export default function TopoStage({
     setPan(p => clamp({ x: drag.current!.px + dx, y: drag.current!.py + dy }));
   };
   const onUp = (e: React.PointerEvent) => {
+    if (drag.current && drag.current.moved < 6) {
+      onSelect?.(tapRouteN.current); // null = background tap → deselects
+    }
+    tapRouteN.current = null;
     drag.current = null;
     (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
   };
@@ -172,7 +183,7 @@ export default function TopoStage({
         position: 'absolute', width: W, height: H,
         transform: `translate(${pan.x}px,${pan.y}px) scale(${zoom})`,
         transformOrigin: '0 0',
-        transition: drag.current ? 'none' : 'transform .35s cubic-bezier(.22,.61,.36,1)',
+        transition: 'none',
         willChange: 'transform',
       }}>
         <img src={photo} alt="" draggable={false} style={{ width: '100%', height: '100%', objectFit: 'fill', display: 'block', userSelect: 'none' }} />
@@ -189,12 +200,12 @@ export default function TopoStage({
                 <polyline points={pts} fill="none" stroke={r.color} vectorEffect="non-scaling-stroke"
                   style={{ strokeWidth: isSel ? 4 : 2.6, cursor: 'pointer', filter: 'drop-shadow(0 1px 2px rgba(0,0,0,.75))' }}
                   strokeLinecap="round" strokeLinejoin="round" />
-                {/* Wide invisible hit area so the line is easy to tap */}
+                {/* Wide invisible hit area — selection handled via onUp on the container */}
                 <polyline points={pts} fill="none" stroke="transparent"
                   vectorEffect="non-scaling-stroke"
+                  data-route-n={r.n}
                   style={{ strokeWidth: 28, cursor: 'pointer' }}
-                  strokeLinecap="round" strokeLinejoin="round"
-                  onClick={ev => { if ((drag.current?.moved || 0) < 6) { ev.stopPropagation(); onSelect?.(r.n); } }} />
+                  strokeLinecap="round" strokeLinejoin="round" />
                 <circle cx={r.line[0][0] * 1000} cy={r.line[0][1] * vbH} r={isSel ? 6 : 4}
                   fill={r.color} stroke="#fff" vectorEffect="non-scaling-stroke" style={{ strokeWidth: 1.5 }} />
               </g>
@@ -257,8 +268,8 @@ export default function TopoStage({
 
       {controls && (
         <div style={{ position: 'absolute', right: 10, bottom: 10, display: 'flex', flexDirection: 'column', gap: 6, zIndex: 10 }}>
-          <button onClick={() => doZoom(zoom * 1.5)} style={zbtn}>+</button>
-          <button onClick={() => doZoom(zoom / 1.5)} style={zbtn}>–</button>
+          <button onClick={() => doZoom(zoom * 1.25)} style={zbtn}>+</button>
+          <button onClick={() => doZoom(zoom / 1.25)} style={zbtn}>–</button>
         </div>
       )}
     </div>
