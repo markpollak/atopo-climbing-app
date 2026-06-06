@@ -16,7 +16,7 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 
 SECRET_KEY       = os.getenv("JWT_SECRET", "atopo-dev-secret-change-in-production")
 ALGORITHM        = "HS256"
-JWT_TTL_DAYS     = 0.001  # ~1.5 min — for testing offline gate; change back to 7 after
+JWT_TTL_DAYS     = 7      # short-lived — embed subscription so offline check works
 REFRESH_TTL_DAYS = 90
 
 bearer = HTTPBearer(auto_error=False)
