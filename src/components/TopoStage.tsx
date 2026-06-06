@@ -223,6 +223,15 @@ export default function TopoStage({
     handleDrag.current = { idx, rect };
     (e.target as HTMLElement).setPointerCapture(e.pointerId);
   };
+
+  const onHandleDblClick = (e: React.MouseEvent, idx: number) => {
+    e.stopPropagation();
+    const r = routes.find(rr => rr.n === selected);
+    if (r && r.line.length > 2) {
+      const nl = r.line.filter((_, i) => i !== idx) as [number, number][];
+      onUpdateLine?.(selected!, nl);
+    }
+  };
   const onHandleMove = (e: React.PointerEvent) => {
     if (!handleDrag.current) return;
     e.stopPropagation();
@@ -235,6 +244,21 @@ export default function TopoStage({
     onUpdateLine?.(selected!, nl);
   };
   const onHandleUp = (e: React.PointerEvent) => { handleDrag.current = null; (e.target as HTMLElement).releasePointerCapture(e.pointerId); };
+
+  // Midpoint handle: drag inserts a new point between i and i+1
+  const onMidDown = (e: React.PointerEvent, afterIdx: number) => {
+    e.stopPropagation();
+    const r = routes.find(rr => rr.n === selected);
+    if (!r) return;
+    const rect = wrapRef.current!.getBoundingClientRect();
+    const a = r.line[afterIdx], b = r.line[afterIdx + 1];
+    const mid: [number, number] = [+((a[0] + b[0]) / 2).toFixed(4), +((a[1] + b[1]) / 2).toFixed(4)];
+    const nl = [...r.line.slice(0, afterIdx + 1), mid, ...r.line.slice(afterIdx + 1)] as [number,number][];
+    onUpdateLine?.(selected!, nl);
+    // immediately hand off to normal handle drag at the new index
+    handleDrag.current = { idx: afterIdx + 1, rect };
+    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+  };
 
   const selRoute = editable && selected != null ? routes.find(r => r.n === selected) : null;
 
@@ -345,11 +369,28 @@ export default function TopoStage({
             onPointerDown={e => onHandleDown(e, i)}
             onPointerMove={onHandleMove}
             onPointerUp={onHandleUp}
+            onDoubleClick={e => onHandleDblClick(e, i)}
             style={{ position: 'absolute', left: `${p[0] * 100}%`, top: `${p[1] * 100}%`,
               transform: 'translate(-50%,-50%)', width: 18, height: 18, borderRadius: '50%',
               background: '#fff', border: `3px solid ${selRoute.color}`,
               boxShadow: '0 1px 5px rgba(0,0,0,.6)', cursor: 'grab', zIndex: 8, touchAction: 'none' }} />
         ))}
+        {selRoute && selRoute.line.slice(0, -1).map((p, i) => {
+          const next = selRoute.line[i + 1];
+          const mx = (p[0] + next[0]) / 2;
+          const my = (p[1] + next[1]) / 2;
+          return (
+            <div key={'mid' + i}
+              onPointerDown={e => onMidDown(e, i)}
+              onPointerMove={onHandleMove}
+              onPointerUp={onHandleUp}
+              style={{ position: 'absolute', left: `${mx * 100}%`, top: `${my * 100}%`,
+                transform: 'translate(-50%,-50%)', width: 12, height: 12, borderRadius: '50%',
+                background: 'rgba(255,255,255,0.5)', border: `2px solid ${selRoute.color}`,
+                boxShadow: '0 1px 3px rgba(0,0,0,.5)', cursor: 'copy', zIndex: 7, touchAction: 'none',
+                opacity: 0.75 }} />
+          );
+        })}
       </div>
 
       {drawingMode && (

@@ -159,6 +159,21 @@ function Inspector({
           ))}
         </div>
       )}
+
+      <div style={{ borderTop: '1px solid var(--line)', marginTop: 14, padding: '14px 0 2px' }}>
+        <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10.5, textTransform: 'uppercase', letterSpacing: '.1em', color: 'var(--ink-faint)', marginBottom: 10 }}>Line editing</div>
+        {[
+          { action: 'Drag', icon: '○', desc: 'Move a point' },
+          { action: 'Drag', icon: '◎', desc: 'Insert a point' },
+          { action: 'Double-click', icon: '○', desc: 'Delete a point' },
+        ].map(r => (
+          <div key={r.desc} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 7 }}>
+            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, background: 'var(--surface-2)', border: '1px solid var(--line-strong)', borderRadius: 4, padding: '2px 6px', color: 'var(--ink-soft)', whiteSpace: 'nowrap', flex: 'none' }}>{r.action}</span>
+            <span style={{ fontSize: 13, flex: 'none', opacity: 0.5 }}>{r.icon}</span>
+            <span style={{ fontSize: 12, color: 'var(--ink-soft)' }}>{r.desc}</span>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -463,7 +478,7 @@ export default function StudioApp() {
             <div style={{ flex: 1, padding: 18, overflow: 'hidden', display: 'flex', flexDirection: 'column', position: 'relative' }}>
               {selApiRoute && (
                 <div style={{ position: 'absolute', top: 28, left: 28, zIndex: 20, background: 'rgba(255,255,255,.88)', backdropFilter: 'blur(6px)', borderRadius: 8, padding: '5px 10px', fontSize: 12.5, color: 'var(--ink-soft)', pointerEvents: 'none', boxShadow: 'var(--sh-sm)' }}>
-                  <b style={{ color: 'var(--ink)' }}>{selApiRoute.name}</b> — drag white handles to adjust
+                  <b style={{ color: 'var(--ink)' }}>{selApiRoute.name}</b> — drag to move · double-click to delete a point
                 </div>
               )}
               <TopoStage
