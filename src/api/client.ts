@@ -61,6 +61,8 @@ export const api = {
   },
   routes: {
     list: (cragId: number) => request<ApiRoute[]>(`/crags/${cragId}/routes`),
+    create: (cragId: number, body: { name?: string; line: [number, number][] }) =>
+      request<ApiRoute>(`/crags/${cragId}/routes`, { method: 'POST', body: JSON.stringify(body) }),
     update: (cragId: number, routeId: number, body: Partial<ApiRoute>) =>
       request<ApiRoute>(`/crags/${cragId}/routes/${routeId}`, {
         method: 'PUT',

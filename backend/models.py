@@ -17,6 +17,15 @@ class RouteUpdate(BaseModel):
     sector_id: Optional[int] = None
 
 
+class RouteCreate(BaseModel):
+    name: str = "New Route"
+    grade: str = ""
+    style: str = "Trad"
+    len: int = 0
+    color: str = "#888"
+    line: list
+
+
 class CragUpdate(BaseModel):
     name: Optional[str] = None
     area: Optional[str] = None

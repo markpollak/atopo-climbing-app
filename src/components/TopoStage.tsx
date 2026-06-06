@@ -17,8 +17,25 @@ interface Props {
   onUpdateLine?: (n: number, line: [number, number][]) => void;
   onUpdateStance?: (idx: number, x: number, y: number) => void;
   stances?: Stance[] | null;
+  drawingMode?: boolean;
+  onDrawComplete?: (line: [number, number][]) => void;
+  onDrawCancel?: () => void;
   className?: string;
   style?: React.CSSProperties;
+}
+
+function catmullRom(pts: [number, number][], vbH: number): string {
+  if (pts.length < 2) return '';
+  if (pts.length === 2) return `M ${pts[0][0]*1000},${pts[0][1]*vbH} L ${pts[1][0]*1000},${pts[1][1]*vbH}`;
+  const p = [pts[0], ...pts, pts[pts.length - 1]];
+  let d = `M ${p[1][0]*1000},${p[1][1]*vbH}`;
+  for (let i = 1; i < p.length - 2; i++) {
+    const [x0,y0] = p[i-1], [x1,y1] = p[i], [x2,y2] = p[i+1], [x3,y3] = p[i+2];
+    const cp1x = x1 + (x2 - x0) / 6; const cp1y = y1 + (y2 - y0) / 6;
+    const cp2x = x2 - (x3 - x1) / 6; const cp2y = y2 - (y3 - y1) / 6;
+    d += ` C ${cp1x*1000},${cp1y*vbH} ${cp2x*1000},${cp2y*vbH} ${x2*1000},${y2*vbH}`;
+  }
+  return d;
 }
 
 const zbtn: React.CSSProperties = {
@@ -33,7 +50,9 @@ export default function TopoStage({
   showLabels = true, dimUnselected = true,
   minZoom = 1, maxZoom = 4, controls = true, initialZoom = 1,
   editable = false, onUpdateLine, onUpdateStance,
-  stances = null, className = '', style = {},
+  stances = null,
+  drawingMode = false, onDrawComplete, onDrawCancel,
+  className = '', style = {},
 }: Props) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const [box, setBox] = useState({ w: 0, h: 0 });
@@ -98,10 +117,51 @@ export default function TopoStage({
     });
   }, [box.w, box.h, W, H, minZoom, maxZoom]);
 
+  // Drawing state
+  const [drawPts, setDrawPts] = useState<[number, number][]>([]);
+  const [drawCursor, setDrawCursor] = useState<[number, number] | null>(null);
+  const drawPtsRef = useRef(drawPts);
+  drawPtsRef.current = drawPts;
+  const onDrawCompleteRef = useRef(onDrawComplete);
+  onDrawCompleteRef.current = onDrawComplete;
+  const onDrawCancelRef = useRef(onDrawCancel);
+  onDrawCancelRef.current = onDrawCancel;
+
+  useEffect(() => {
+    if (!drawingMode) { setDrawPts([]); setDrawCursor(null); return; }
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') { setDrawPts([]); onDrawCancelRef.current?.(); }
+      if (e.key === 'Enter' && drawPtsRef.current.length >= 2) {
+        onDrawCompleteRef.current?.(drawPtsRef.current); setDrawPts([]);
+      }
+      if (e.key === 'Backspace') {
+        setDrawPts(p => p.slice(0, -1));
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [drawingMode]);
+
   const tapRouteN = useRef<number | null>(null);
+
+  const toNorm = useCallback((clientX: number, clientY: number): [number, number] => {
+    const rect = wrapRef.current!.getBoundingClientRect();
+    const nx = Math.max(0, Math.min(1, (clientX - rect.left - pan.x) / (W * zoom)));
+    const ny = Math.max(0, Math.min(1, (clientY - rect.top - pan.y) / (H * zoom)));
+    return [+nx.toFixed(4), +ny.toFixed(4)];
+  }, [pan, W, H, zoom]);
 
   const onDown = (e: React.PointerEvent) => {
     if ((e.target as HTMLElement).closest('button')) return;
+    if (drawingMode) {
+      // double-click = finish
+      if (e.detail === 2 && drawPts.length >= 2) {
+        onDrawComplete?.(drawPts); setDrawPts([]); return;
+      }
+      const pt = toNorm(e.clientX, e.clientY);
+      setDrawPts(p => [...p, pt]);
+      return;
+    }
     // Detect tap on a route hit-area — store it; fire selection in onUp if not a drag
     const hit = (e.target as Element).closest('[data-route-n]');
     tapRouteN.current = hit ? Number(hit.getAttribute('data-route-n')) : null;
@@ -109,6 +169,10 @@ export default function TopoStage({
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
   };
   const onMove = (e: React.PointerEvent) => {
+    if (drawingMode) {
+      setDrawCursor(toNorm(e.clientX, e.clientY));
+      return;
+    }
     if (!drag.current) return;
     const dx = e.clientX - drag.current.sx, dy = e.clientY - drag.current.sy;
     drag.current.moved += Math.abs(dx) + Math.abs(dy);
@@ -117,6 +181,7 @@ export default function TopoStage({
     setPan(clamp({ x: px + dx, y: py + dy }));
   };
   const onUp = (e: React.PointerEvent) => {
+    if (drawingMode) return;
     if (drag.current && drag.current.moved < 6) {
       onSelect?.(tapRouteN.current); // null = background tap → deselects
     }
@@ -177,7 +242,7 @@ export default function TopoStage({
     <div
       ref={wrapRef}
       className={'topo-stage ' + className}
-      style={{ position: 'relative', overflow: 'hidden', background: '#15140f', touchAction: 'none', cursor: drag.current ? 'grabbing' : 'grab', ...style }}
+      style={{ position: 'relative', overflow: 'hidden', background: '#15140f', touchAction: 'none', cursor: drawingMode ? 'crosshair' : drag.current ? 'grabbing' : 'grab', ...style }}
       onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp}
       onWheel={onWheel}
     >
@@ -192,18 +257,37 @@ export default function TopoStage({
 
         <svg viewBox={`0 0 1000 ${vbH}`} preserveAspectRatio="none"
           style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}>
+          {drawingMode && drawPts.length > 0 && (() => {
+            const preview = drawCursor ? [...drawPts, drawCursor] : drawPts;
+            const pts = preview.map(p => `${p[0] * 1000},${p[1] * vbH}`).join(' ');
+            return (
+              <g>
+                <polyline points={pts} fill="none" stroke="#fff" vectorEffect="non-scaling-stroke"
+                  style={{ strokeWidth: 8, opacity: .4, strokeDasharray: '6 4' }}
+                  strokeLinecap="round" strokeLinejoin="round" />
+                <polyline points={pts} fill="none" stroke="#F2453A" vectorEffect="non-scaling-stroke"
+                  style={{ strokeWidth: 3, strokeDasharray: '6 4', filter: 'drop-shadow(0 1px 2px rgba(0,0,0,.75))' }}
+                  strokeLinecap="round" strokeLinejoin="round" />
+                {drawPts.map((p, i) => (
+                  <circle key={i} cx={p[0] * 1000} cy={p[1] * vbH} r={i === 0 ? 7 : 5}
+                    fill={i === 0 ? '#F2453A' : '#fff'} stroke={i === 0 ? '#fff' : '#F2453A'}
+                    vectorEffect="non-scaling-stroke" style={{ strokeWidth: 2 }} />
+                ))}
+              </g>
+            );
+          })()}
           {routes.map(r => {
             const isSel = selected === r.n;
             const dim = dimUnselected && selected != null && !isSel;
-            const pts = r.line.map(p => `${p[0] * 1000},${p[1] * vbH}`).join(' ');
+            const d = catmullRom(r.line, vbH);
             return (
               <g key={r.n} style={{ transition: 'opacity .3s' }} opacity={dim ? 0.32 : 1}>
-                {isSel && <polyline points={pts} fill="none" stroke="#fff" vectorEffect="non-scaling-stroke" style={{ strokeWidth: 8, opacity: .55 }} strokeLinecap="round" strokeLinejoin="round" />}
-                <polyline points={pts} fill="none" stroke={r.color} vectorEffect="non-scaling-stroke"
+                {isSel && <path d={d} fill="none" stroke="#fff" vectorEffect="non-scaling-stroke" style={{ strokeWidth: 8, opacity: .55 }} strokeLinecap="round" strokeLinejoin="round" />}
+                <path d={d} fill="none" stroke={r.color} vectorEffect="non-scaling-stroke"
                   style={{ strokeWidth: isSel ? 4 : 2.6, cursor: 'pointer', filter: 'drop-shadow(0 1px 2px rgba(0,0,0,.75))' }}
                   strokeLinecap="round" strokeLinejoin="round" />
-                {/* Wide invisible hit area — selection handled via onUp on the container */}
-                <polyline points={pts} fill="none" stroke="transparent"
+                {/* Wide invisible hit area */}
+                <path d={d} fill="none" stroke="transparent"
                   vectorEffect="non-scaling-stroke"
                   data-route-n={r.n}
                   style={{ strokeWidth: 28, cursor: 'pointer' }}
@@ -268,6 +352,17 @@ export default function TopoStage({
         ))}
       </div>
 
+      {drawingMode && (
+        <div style={{ position: 'absolute', bottom: 54, left: '50%', transform: 'translateX(-50%)', zIndex: 20,
+          background: 'rgba(21,20,15,.72)', backdropFilter: 'blur(8px)', borderRadius: 8,
+          padding: '6px 14px', fontSize: 12, color: '#fff', whiteSpace: 'nowrap', pointerEvents: 'none' }}>
+          {drawPts.length === 0
+            ? 'Click to place first point'
+            : drawPts.length === 1
+            ? 'Click to add more points — double-click to finish'
+            : `${drawPts.length} points — double-click or Enter to finish · Backspace to undo · Esc to cancel`}
+        </div>
+      )}
       {controls && (
         <div style={{ position: 'absolute', right: 10, bottom: 10, display: 'flex', flexDirection: 'column', gap: 6, zIndex: 10 }}>
           <button onClick={() => doZoom(zoom * 1.25)} style={zbtn}>+</button>

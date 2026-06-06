@@ -12,7 +12,7 @@ Separate from the horse racing / betting app in `~/`.
 # Terminal 1 — Backend API (FastAPI + SQLite)
 cd ~/atopo
 source ~/.venv/bin/activate
-uvicorn backend.main:app --port 8001
+uvicorn backend.main:app --host 0.0.0.0 --port 8001
 
 # Terminal 2 — Frontend (Vite proxies /api → :8001)
 cd ~/atopo

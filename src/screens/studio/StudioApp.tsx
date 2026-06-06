@@ -8,6 +8,45 @@ import type { Route } from '../../types';
 
 type StudioTab = 'editor' | 'table' | 'publish';
 
+function chaikin(pts: [number, number][], iterations = 2): [number, number][] {
+  let p: [number, number][] = pts;
+  for (let iter = 0; iter < iterations; iter++) {
+    const np: [number, number][] = [p[0]];
+    for (let i = 0; i < p.length - 1; i++) {
+      np.push([+(0.75*p[i][0] + 0.25*p[i+1][0]).toFixed(4), +(0.75*p[i][1] + 0.25*p[i+1][1]).toFixed(4)]);
+      np.push([+(0.25*p[i][0] + 0.75*p[i+1][0]).toFixed(4), +(0.25*p[i][1] + 0.75*p[i+1][1]).toFixed(4)]);
+    }
+    np.push(p[p.length - 1]);
+    p = np;
+  }
+  return p;
+}
+
+function DrawHelp() {
+  const steps = [
+    { key: 'Click', desc: 'Place a point on the topo' },
+    { key: 'Double-click', desc: 'Finish the route line' },
+    { key: 'Enter', desc: 'Finish (keyboard)' },
+    { key: 'Backspace', desc: 'Remove last point' },
+    { key: 'Esc', desc: 'Cancel drawing' },
+  ];
+  return (
+    <div style={{ padding: '20px 18px' }}>
+      <p style={{ fontSize: 13, color: 'var(--ink-soft)', marginBottom: 20, lineHeight: 1.5 }}>
+        Click on the topo photo to place waypoints along the route. Finish when done — the route will be saved automatically.
+      </p>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {steps.map(s => (
+          <div key={s.key} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <kbd style={{ fontFamily: 'var(--font-mono)', fontSize: 10.5, background: 'var(--surface-2)', border: '1px solid var(--line-strong)', borderRadius: 5, padding: '3px 7px', color: 'var(--ink)', whiteSpace: 'nowrap', flex: 'none' }}>{s.key}</kbd>
+            <span style={{ fontSize: 12.5, color: 'var(--ink-soft)' }}>{s.desc}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // Convert ApiRoute → Route shape used by TopoStage / Inspector
 function toRoute(r: ApiRoute): Route {
   return {
@@ -274,6 +313,7 @@ export default function StudioApp() {
   const [showLabels, setShowLabels] = useState(true);
   const [isolate, setIsolate] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [tool, setTool] = useState<'select' | 'draw'>('select');
 
   // Photo: use uploaded URL if present, fall back to bundled asset
   const photoSrc = crag?.photo_url || STANAGE_PHOTO;
@@ -319,6 +359,20 @@ export default function StudioApp() {
         setSaving(false);
       }
     }, 600);
+  }, []);
+
+  const handleDrawComplete = useCallback(async (line: [number, number][]) => {
+    setTool('select');
+    setSaving(true);
+    try {
+      const created = await api.routes.create(CRAG_ID, { line });
+      setApiRoutes(rs => [...rs, created]);
+      setSelectedId(created.id);
+    } catch (e) {
+      console.error('Create route failed:', e);
+    } finally {
+      setSaving(false);
+    }
   }, []);
 
   // Save line coords immediately on drag-end
@@ -392,8 +446,8 @@ export default function StudioApp() {
         {activeTab === 'editor' && (
           <div className="st-main">
             <div className="st-toolbar">
-              <button className="tbtn on"><Icon.edit /> Select</button>
-              <button className="tbtn" disabled><Icon.layers /> Draw Route</button>
+              <button className={'tbtn' + (tool === 'select' ? ' on' : '')} onClick={() => setTool('select')}><Icon.edit /> Select</button>
+              <button className={'tbtn' + (tool === 'draw' ? ' on' : '')} onClick={() => setTool(t => t === 'draw' ? 'select' : 'draw')}><Icon.layers /> Draw Route</button>
               <div className="tbsep" />
               <button className={'tbtn' + (showLabels ? ' on' : '')} onClick={() => setShowLabels(v => !v)}>
                 <Icon.eye /> Labels
@@ -418,14 +472,19 @@ export default function StudioApp() {
                 routes={routes}
                 selected={selN}
                 onSelect={n => {
-                  const r = apiRoutes.find(r => r.n === n);
-                  setSelectedId(r?.id ?? null);
+                  if (tool === 'select') {
+                    const r = apiRoutes.find(r => r.n === n);
+                    setSelectedId(r?.id ?? null);
+                  }
                 }}
                 showLabels={showLabels}
                 dimUnselected={isolate}
-                editable={true}
+                editable={tool === 'select'}
                 onUpdateLine={saveLine}
                 stances={selApiRoute?.stances || null}
+                drawingMode={tool === 'draw'}
+                onDrawComplete={handleDrawComplete}
+                onDrawCancel={() => setTool('select')}
                 style={{ flex: 1, borderRadius: 'var(--r-md)', overflow: 'hidden' }}
               />
             </div>
@@ -448,9 +507,31 @@ export default function StudioApp() {
         {activeTab === 'editor' && (
           <div className="st-insp">
             <div style={{ padding: '12px 18px 8px', borderBottom: '1px solid var(--line)' }}>
-              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10.5, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--ink-faint)' }}>Inspector</span>
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10.5, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--ink-faint)' }}>
+                {tool === 'draw' ? 'Draw Route' : 'Inspector'}
+              </span>
             </div>
-            <Inspector route={selApiRoute} onChange={saveRoute} saving={saving} />
+            {tool === 'draw' ? (
+              <DrawHelp />
+            ) : (
+              <>
+                <Inspector route={selApiRoute} onChange={saveRoute} saving={saving} />
+                {selApiRoute && (
+                  <div style={{ padding: '0 18px 18px' }}>
+                    <button
+                      className="btn btn-ghost btn-sm"
+                      style={{ width: '100%' }}
+                      onClick={async () => {
+                        const smoothed = chaikin(selApiRoute.line, 2);
+                        await saveRoute({ ...selApiRoute, line: smoothed });
+                      }}
+                    >
+                      Smooth line
+                    </button>
+                  </div>
+                )}
+              </>
+            )}
           </div>
         )}
       </div>
