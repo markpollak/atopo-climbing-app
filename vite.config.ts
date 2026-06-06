@@ -3,6 +3,12 @@ import react from '@vitejs/plugin-react'
 
 export default defineConfig({
   plugins: [react()],
+  server: {
+    proxy: {
+      '/api': 'http://localhost:8001',
+      '/uploads': 'http://localhost:8001',
+    },
+  },
   optimizeDeps: {
     include: ['react-map-gl/maplibre', 'maplibre-gl'],
     exclude: [],

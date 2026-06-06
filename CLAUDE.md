@@ -9,10 +9,18 @@ Separate from the horse racing / betting app in `~/`.
 
 ## How to run
 ```bash
+# Terminal 1 — Backend API (FastAPI + SQLite)
+cd ~/atopo
+source ~/.venv/bin/activate
+uvicorn backend.main:app --port 8001
+
+# Terminal 2 — Frontend (Vite proxies /api → :8001)
 cd ~/atopo
 npm run dev        # starts on http://localhost:5174
 ```
 Dev server config: `~/.claude/launch.json` → name "atopo", port 5174.
+
+First run: `python -m backend.seed` to seed the DB (already done — skips if DB has data).
 
 ## Stack
 Vite + React 18 + TypeScript. No backend yet — all data is local.
@@ -34,7 +42,10 @@ Vite + React 18 + TypeScript. No backend yet — all data is local.
 - **Route lines are normalised [x, y] in [0,1]** — x=0 left, y=0 top. Never burn into photo.
 - Lines extracted via pixel analysis of annotated source photo — fine-tune in Studio.
 - Grade system (UK/French/YDS) is a display-layer concern only. Store UK trad grades canonically.
-- No backend yet. Guide data bundled as TypeScript. Next step: FastAPI + SQLite or Supabase.
+- Backend: FastAPI + SQLite (`backend/atopo.db`). Photos stored in `backend/uploads/`, served as static files.
+- Frontend API client: `src/api/client.ts` — typed fetch helpers, proxy via Vite → port 8001.
+- Studio auto-saves on field blur (600ms debounce) and immediately on line drag-end.
+- Mobile app loads from API on mount, falls back to hardcoded stanage.ts if API is down.
 
 ## Current crag: Stanage Edge
 - 21 routes, VDiff to E4, all Trad
