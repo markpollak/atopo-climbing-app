@@ -23,6 +23,20 @@ def list_crags():
     return [_row_to_dict(r) for r in rows]
 
 
+@router.get("/routes/all")
+def list_all_routes():
+    """All routes across every crag, with crag_name and crag_area attached."""
+    with get_db() as conn:
+        rows = conn.execute(
+            """SELECT r.id, r.crag_id, r.n, r.name, r.grade, r.stars,
+                      r.style, r.len, r.desc, r.warn, r.color, r.status,
+                      c.name AS crag_name, c.area AS crag_area
+               FROM routes r JOIN crags c ON c.id = r.crag_id
+               ORDER BY c.id, r.n"""
+        ).fetchall()
+    return [dict(r) for r in rows]
+
+
 @router.get("/{crag_id}")
 def get_crag(crag_id: int):
     with get_db() as conn:

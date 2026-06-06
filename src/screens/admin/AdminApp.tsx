@@ -1,9 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
-import { api, setAdminToken, getToken, type ApiUser, type AdminStats } from '../../api/client';
+import { api, setAdminToken, getToken, type ApiUser, type AdminStats, type ApiRoute, type ApiCrag } from '../../api/client';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type Section = 'dashboard' | 'users' | 'settings';
+type Section = 'dashboard' | 'users' | 'crags' | 'settings';
 
 // ─── Shared styles / helpers ──────────────────────────────────────────────────
 
@@ -493,11 +493,153 @@ function Settings() {
   );
 }
 
+// ─── Crags ────────────────────────────────────────────────────────────────────
+
+type RouteRow = ApiRoute & { crag_name: string; crag_area: string };
+
+function StarRating({ stars }: { stars: number }) {
+  return (
+    <span style={{ color: '#f0a93b', fontSize: 12, letterSpacing: 1 }}>
+      {'★'.repeat(stars)}{'☆'.repeat(3 - stars)}
+    </span>
+  );
+}
+
+function CragsSection() {
+  const [crags, setCrags] = useState<ApiCrag[]>([]);
+  const [allRoutes, setAllRoutes] = useState<RouteRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [expanded, setExpanded] = useState<number | null>(null);
+  const [search, setSearch] = useState('');
+
+  useEffect(() => {
+    Promise.all([api.crags.list(), api.crags.allRoutes()])
+      .then(([c, r]) => { setCrags(c); setAllRoutes(r); })
+      .finally(() => setLoading(false));
+  }, []);
+
+  const routesFor = (cragId: number) => allRoutes.filter(r => r.crag_id === cragId);
+
+  const filtered = crags.filter(c =>
+    c.name.toLowerCase().includes(search.toLowerCase()) ||
+    c.area.toLowerCase().includes(search.toLowerCase())
+  );
+
+  const th: React.CSSProperties = { padding: '10px 14px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: 'var(--ink-faint)', letterSpacing: 0.8, textTransform: 'uppercase', whiteSpace: 'nowrap' };
+  const td: React.CSSProperties = { padding: '11px 14px', fontSize: 13, verticalAlign: 'middle' };
+
+  function gradeColour(grade: string): string {
+    if (grade.startsWith('E4') || grade.startsWith('E5') || grade.startsWith('E6') || grade.startsWith('E7')) return '#c0392b';
+    if (grade.startsWith('E')) return '#e67e22';
+    if (grade.startsWith('HVS')) return '#f39c12';
+    if (grade.startsWith('VS')) return '#27ae60';
+    return 'var(--ink-soft)';
+  }
+
+  return (
+    <div>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+        <div>
+          <h1 style={{ fontSize: 22, fontWeight: 800, letterSpacing: '-0.02em', margin: 0 }}>Crags</h1>
+          <p style={{ fontSize: 13, color: 'var(--ink-faint)', margin: '4px 0 0' }}>
+            {loading ? '…' : `${crags.length} crags · ${allRoutes.length} routes`}
+          </p>
+        </div>
+        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search crags…"
+          style={{ padding: '9px 14px', border: '1px solid var(--line)', borderRadius: 8, fontSize: 13, background: 'var(--card)', color: 'var(--ink)', width: 200, fontFamily: 'inherit' }} />
+      </div>
+
+      <div style={{ background: 'var(--card)', border: '1px solid var(--line)', borderRadius: 12, overflow: 'hidden' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <thead>
+            <tr style={{ borderBottom: '1px solid var(--line)', background: 'var(--surface-2)' }}>
+              {['Crag', 'Area', 'Type', 'Walk-in', 'Aspect', 'Routes', ''].map((h, i) => (
+                <th key={i} style={{ ...th, textAlign: h === '' ? 'right' : 'left' }}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {loading && (
+              <tr><td colSpan={7} style={{ ...td, textAlign: 'center', color: 'var(--ink-faint)', padding: 28 }}>Loading…</td></tr>
+            )}
+            {!loading && filtered.map((crag, i) => {
+              const routes = routesFor(crag.id);
+              const isOpen = expanded === crag.id;
+              const isLast = i === filtered.length - 1;
+              return (
+                <>
+                  <tr key={crag.id} style={{ borderBottom: isOpen ? 'none' : (isLast ? 'none' : '1px solid var(--line)'), background: isOpen ? 'var(--surface-2)' : 'var(--card)', cursor: 'pointer' }}
+                    onClick={() => setExpanded(isOpen ? null : crag.id)}>
+                    <td style={{ ...td, fontWeight: 700, color: 'var(--ink)' }}>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                        <span style={{ fontSize: 11, color: 'var(--ink-faint)', transition: 'transform 0.15s', display: 'inline-block', transform: isOpen ? 'rotate(90deg)' : 'none' }}>▶</span>
+                        {crag.name}
+                      </span>
+                    </td>
+                    <td style={{ ...td, color: 'var(--ink-soft)' }}>{crag.area || '—'}</td>
+                    <td style={td}>
+                      <span style={{ display: 'inline-block', padding: '2px 8px', borderRadius: 99, fontSize: 11, fontWeight: 700, background: 'var(--surface-2)', color: 'var(--ink-soft)', border: '1px solid var(--line)' }}>
+                        {crag.type}
+                      </span>
+                    </td>
+                    <td style={{ ...td, color: 'var(--ink-faint)' }}>{crag.walkin || '—'}</td>
+                    <td style={{ ...td, color: 'var(--ink-faint)' }}>{crag.aspect || '—'}</td>
+                    <td style={{ ...td, fontWeight: 700, color: 'var(--rust)' }}>{routes.length}</td>
+                    <td style={{ ...td, textAlign: 'right' }}>
+                      {crag.photo_url && (
+                        <span style={{ fontSize: 11, color: 'var(--ink-faint)', marginRight: 8 }}>📷</span>
+                      )}
+                    </td>
+                  </tr>
+                  {isOpen && (
+                    <tr key={`${crag.id}-routes`} style={{ borderBottom: isLast ? 'none' : '1px solid var(--line)' }}>
+                      <td colSpan={7} style={{ padding: 0 }}>
+                        {routes.length === 0 ? (
+                          <div style={{ padding: '16px 24px', color: 'var(--ink-faint)', fontSize: 13 }}>No routes yet.</div>
+                        ) : (
+                          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                            <thead>
+                              <tr style={{ background: 'var(--surface-2)', borderBottom: '1px solid var(--line)' }}>
+                                {['#', 'Route', 'Grade', 'Style', 'Length', 'Stars'].map(h => (
+                                  <th key={h} style={{ ...th, fontSize: 10, paddingLeft: h === '#' ? 40 : 14 }}>{h}</th>
+                                ))}
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {routes.map((r, ri) => (
+                                <tr key={r.id} style={{ borderBottom: ri < routes.length - 1 ? '1px solid var(--line)' : 'none', background: 'var(--card)' }}>
+                                  <td style={{ ...td, paddingLeft: 40, width: 48 }}>
+                                    <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 22, height: 22, borderRadius: 11, background: r.color, fontFamily: 'monospace', fontSize: 10, fontWeight: 700, color: '#fff' }}>{r.n}</span>
+                                  </td>
+                                  <td style={{ ...td, fontWeight: 600, color: 'var(--ink)' }}>{r.name}</td>
+                                  <td style={{ ...td, fontFamily: 'monospace', fontWeight: 700, color: gradeColour(r.grade) }}>{r.grade}</td>
+                                  <td style={{ ...td, color: 'var(--ink-soft)' }}>{r.style}</td>
+                                  <td style={{ ...td, color: 'var(--ink-faint)' }}>{r.len ? `${r.len}m` : '—'}</td>
+                                  <td style={td}><StarRating stars={r.stars} /></td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        )}
+                      </td>
+                    </tr>
+                  )}
+                </>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
 // ─── Shell (sidebar + topbar) ─────────────────────────────────────────────────
 
 const NAV: { id: Section; label: string; icon: string }[] = [
   { id: 'dashboard', label: 'Dashboard', icon: '▦' },
   { id: 'users',     label: 'Users',     icon: '◉' },
+  { id: 'crags',     label: 'Crags',     icon: '⛰' },
   { id: 'settings',  label: 'Settings',  icon: '⚙' },
 ];
 
@@ -533,6 +675,7 @@ function AdminShell({ admin, onLogout }: { admin: ApiUser; onLogout: () => void 
       <div style={{ flex: 1, overflow: 'auto', padding: '32px 32px 40px' }}>
         {section === 'dashboard' && <Dashboard />}
         {section === 'users'     && <UsersSection currentAdmin={admin} />}
+        {section === 'crags'     && <CragsSection />}
         {section === 'settings'  && <Settings />}
       </div>
     </div>

@@ -107,6 +107,7 @@ export const api = {
   crags: {
     list: () => request<ApiCrag[]>('/crags'),
     get: (id: number) => request<ApiCrag>(`/crags/${id}`),
+    allRoutes: () => request<(ApiRoute & { crag_name: string; crag_area: string })[]>('/crags/routes/all'),
     update: (id: number, body: Partial<ApiCrag>) =>
       request<ApiCrag>(`/crags/${id}`, { method: 'PUT', body: JSON.stringify(body) }),
     uploadPhoto: async (id: number, file: File): Promise<ApiCrag> => {
